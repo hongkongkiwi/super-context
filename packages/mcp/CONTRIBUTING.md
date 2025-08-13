@@ -1,6 +1,6 @@
-# Contributing to @zilliz/claude-context-mcp
+# Contributing to @hongkongkiwi/super-context-mcp
 
-Thanks for your interest in contributing to the Claude Context MCP server!
+Thanks for your interest in contributing to the Super Context MCP server!
 
 > 📖 **First time contributing?** Please read the [main contributing guide](../../CONTRIBUTING.md) first for general setup and workflow.
 
@@ -87,7 +87,7 @@ You can use the following configuration to configure the MCP server with a devel
 ```json
 {
   "mcpServers": {
-    "claude-context-local": {
+    "super-context-local": {
       "command": "node",
       "args": ["PATH_TO_CLAUDECONTEXT/packages/mcp/dist/index.js"],
       "env": {
@@ -101,7 +101,7 @@ You can use the following configuration to configure the MCP server with a devel
 
 ### Claude Code Development Mode Configuration
 ```bash
-claude mcp add claude-context -e OPENAI_API_KEY=sk-your-openai-api-key -e MILVUS_TOKEN=your-zilliz-cloud-api-key -- node PATH_TO_CLAUDECONTEXT/packages/mcp/dist/index.js
+claude mcp add super-context -e OPENAI_API_KEY=sk-your-openai-api-key -e MILVUS_TOKEN=your-zilliz-cloud-api-key -- node PATH_TO_CLAUDECONTEXT/packages/mcp/dist/index.js
 ```
 And then you can start Claude Code with `claude --debug` to see the MCP server logs.
 

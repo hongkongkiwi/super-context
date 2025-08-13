@@ -1,7 +1,7 @@
 {
-    "name": "@zilliz/claude-context-chrome-extension",
+    "name": "@hongkongkiwi/super-context-chrome-extension",
     "version": "0.1.1",
-    "description": "Claude Context Chrome extension for web-based code indexing",
+    "description": "Super Context Chrome extension for web-based code indexing",
     "private": true,
     "scripts": {
         "build": "webpack --mode=production",
@@ -13,7 +13,7 @@
         "build:milvus": "./build.sh"
     },
     "dependencies": {
-        "@zilliz/claude-context-core": "workspace:*"
+        "@hongkongkiwi/super-context-core": "workspace:*"
     },
     "overrides": {
         "@zilliz/milvus2-sdk-node": false
@@ -43,15 +43,20 @@
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/zilliztech/claude-context.git",
+        "url": "https://github.com/hongkongkiwi/super-context.git",
         "directory": "packages/chrome-extension"
     },
     "license": "MIT",
+    "author": "hongkongkiwi",
+    "contributors": [
+        "Zilliz (Original author)"
+    ],
+    "forkedFrom": "https://github.com/zilliztech/claude-context",
     "main": "content.js",
     "keywords": [],
     "author": "",
     "bugs": {
-        "url": "https://github.com/zilliztech/claude-context/issues"
+        "url": "https://github.com/hongkongkiwi/super-context/issues"
     },
-    "homepage": "https://github.com/zilliztech/claude-context#readme"
+    "homepage": "https://github.com/hongkongkiwi/super-context#readme"
 }

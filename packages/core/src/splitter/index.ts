@@ -6,6 +6,9 @@ export interface CodeChunk {
         endLine: number;
         language?: string;
         filePath?: string;
+        chunkIndex?: number;
+        isStreamed?: boolean;
+        isFinal?: boolean;
     };
 }
 
@@ -43,6 +46,12 @@ export interface Splitter {
      * @param chunkOverlap Chunk overlap size
      */
     setChunkOverlap(chunkOverlap: number): void;
+
+    /**
+     * Dispose of resources and clean up memory (optional)
+     * Implementations that manage resources should provide this method
+     */
+    dispose?(): void;
 }
 
 // Implementation class exports

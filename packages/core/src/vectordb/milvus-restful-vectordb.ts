@@ -3,6 +3,7 @@ import {
     SearchOptions,
     VectorSearchResult,
     VectorDatabase,
+    MultiCollectionVectorDatabase,
     HybridSearchRequest,
     HybridSearchOptions,
     HybridSearchResult,
@@ -45,7 +46,7 @@ async function createCollectionWithLimitCheck(
  * This implementation is designed for environments where gRPC is not available,
  * such as VSCode extensions or browser environments.
  */
-export class MilvusRestfulVectorDatabase implements VectorDatabase {
+export class MilvusRestfulVectorDatabase implements MultiCollectionVectorDatabase {
     protected config: MilvusRestfulConfig;
     private baseUrl: string | null = null;
     protected initializationPromise: Promise<void>;

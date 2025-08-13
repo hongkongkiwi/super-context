@@ -66,7 +66,7 @@ export class VoyageAIEmbedding extends Embedding {
         return this.dimension;
     }
 
-    async embed(text: string): Promise<EmbeddingVector> {
+    protected async embedInternal(text: string): Promise<EmbeddingVector> {
         const processedText = this.preprocessText(text);
         const model = this.config.model || 'voyage-code-3';
 
@@ -86,7 +86,7 @@ export class VoyageAIEmbedding extends Embedding {
         };
     }
 
-    async embedBatch(texts: string[]): Promise<EmbeddingVector[]> {
+    protected async embedBatchInternal(texts: string[]): Promise<EmbeddingVector[]> {
         const processedTexts = this.preprocessTexts(texts);
         const model = this.config.model || 'voyage-code-3';
 

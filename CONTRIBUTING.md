@@ -1,6 +1,6 @@
-# Contributing to Claude Context
+# Contributing to Super Context
 
-Thank you for your interest in contributing to Claude Context! This guide will help you get started.
+Thank you for your interest in contributing to Super Context! This guide will help you get started.
 
 ## 🚀 Getting Started
 
@@ -14,8 +14,8 @@ Thank you for your interest in contributing to Claude Context! This guide will h
 
 1. **Fork and Clone**
    ```bash
-   git clone https://github.com/your-username/claude-context.git
-   cd claude-context
+   git clone https://github.com/your-username/super-context.git
+   cd super-context
    ```
 
 2. **Install Dependencies**
@@ -36,7 +36,7 @@ Thank you for your interest in contributing to Claude Context! This guide will h
 ## 📁 Project Structure
 
 ```
-claude-context/
+super-context/
 ├── packages/
 │   ├── core/              # Core indexing engine
 │   ├── vscode-extension/  # VSCode extension
@@ -155,8 +155,8 @@ When reporting bugs or requesting features:
 
 ## 📄 License
 
-By contributing to Claude Context, you agree that your contributions will be licensed under the MIT License.
+By contributing to Super Context, you agree that your contributions will be licensed under the MIT License.
 
 ---
 
-Thank you for contributing to Claude Context! 🎉
+Thank you for contributing to Super Context! 🎉

@@ -1,8 +1,8 @@
-import { OpenAIEmbedding, VoyageAIEmbedding, GeminiEmbedding, OllamaEmbedding } from "@zilliz/claude-context-core";
+import { OpenAIEmbedding, VoyageAIEmbedding, GeminiEmbedding, OllamaEmbedding, HuggingFaceEmbedding, OpenRouterEmbedding, VertexAIEmbedding, BedrockEmbedding } from "@hongkongkiwi/super-context-core";
 import { ContextMcpConfig } from "./config.js";
 
 // Helper function to create embedding instance based on provider
-export function createEmbeddingInstance(config: ContextMcpConfig): OpenAIEmbedding | VoyageAIEmbedding | GeminiEmbedding | OllamaEmbedding {
+export function createEmbeddingInstance(config: ContextMcpConfig): OpenAIEmbedding | VoyageAIEmbedding | GeminiEmbedding | OllamaEmbedding | HuggingFaceEmbedding | OpenRouterEmbedding | VertexAIEmbedding | BedrockEmbedding {
     console.log(`[EMBEDDING] Creating ${config.embeddingProvider} embedding instance...`);
 
     switch (config.embeddingProvider) {
@@ -56,13 +56,73 @@ export function createEmbeddingInstance(config: ContextMcpConfig): OpenAIEmbeddi
             console.log(`[EMBEDDING] ✅ Ollama embedding instance created successfully`);
             return ollamaEmbedding;
 
+        case 'HuggingFace':
+            if (!config.huggingfaceApiKey) {
+                console.error(`[EMBEDDING] ❌ HuggingFace API key is required but not provided`);
+                throw new Error('HUGGINGFACE_API_KEY is required for HuggingFace embedding provider');
+            }
+            console.log(`[EMBEDDING] 🔧 Configuring HuggingFace with model: ${config.embeddingModel}`);
+            const hfEmbedding = new HuggingFaceEmbedding({
+                apiKey: config.huggingfaceApiKey,
+                model: config.embeddingModel,
+                ...(config.huggingfaceBaseUrl && { baseUrl: config.huggingfaceBaseUrl })
+            });
+            console.log(`[EMBEDDING] ✅ HuggingFace embedding instance created successfully`);
+            return hfEmbedding;
+
+        case 'OpenRouter':
+            if (!config.openrouterApiKey) {
+                console.error(`[EMBEDDING] ❌ OpenRouter API key is required but not provided`);
+                throw new Error('OPENROUTER_API_KEY is required for OpenRouter embedding provider');
+            }
+            console.log(`[EMBEDDING] 🔧 Configuring OpenRouter with model: ${config.embeddingModel}`);
+            const orEmbedding = new OpenRouterEmbedding({
+                apiKey: config.openrouterApiKey,
+                model: config.embeddingModel,
+                ...(config.openrouterBaseUrl && { baseUrl: config.openrouterBaseUrl })
+            });
+            console.log(`[EMBEDDING] ✅ OpenRouter embedding instance created successfully`);
+            return orEmbedding;
+
+        case 'VertexAI':
+            if (!config.vertexaiProjectId || !config.vertexaiLocation) {
+                console.error(`[EMBEDDING] ❌ VertexAI project ID and location are required but not provided`);
+                throw new Error('VERTEXAI_PROJECT_ID and VERTEXAI_LOCATION are required for VertexAI embedding provider');
+            }
+            console.log(`[EMBEDDING] 🔧 Configuring VertexAI with model: ${config.embeddingModel}`);
+            const vertexEmbedding = new VertexAIEmbedding({
+                projectId: config.vertexaiProjectId,
+                location: config.vertexaiLocation,
+                model: config.embeddingModel,
+                ...(config.vertexaiKeyFilename && { keyFilename: config.vertexaiKeyFilename })
+            });
+            console.log(`[EMBEDDING] ✅ VertexAI embedding instance created successfully`);
+            return vertexEmbedding;
+
+        case 'Bedrock':
+            if (!config.bedrockRegion) {
+                console.error(`[EMBEDDING] ❌ Bedrock region is required but not provided`);
+                throw new Error('BEDROCK_REGION is required for Bedrock embedding provider');
+            }
+            console.log(`[EMBEDDING] 🔧 Configuring Bedrock with model: ${config.embeddingModel}`);
+            const bedrockEmbedding = new BedrockEmbedding({
+                region: config.bedrockRegion,
+                model: config.embeddingModel,
+                ...(config.bedrockAccessKeyId && { accessKeyId: config.bedrockAccessKeyId }),
+                ...(config.bedrockSecretAccessKey && { secretAccessKey: config.bedrockSecretAccessKey }),
+                ...(config.bedrockSessionToken && { sessionToken: config.bedrockSessionToken }),
+                ...(config.bedrockProfile && { profile: config.bedrockProfile })
+            });
+            console.log(`[EMBEDDING] ✅ Bedrock embedding instance created successfully`);
+            return bedrockEmbedding;
+
         default:
             console.error(`[EMBEDDING] ❌ Unsupported embedding provider: ${config.embeddingProvider}`);
             throw new Error(`Unsupported embedding provider: ${config.embeddingProvider}`);
     }
 }
 
-export function logEmbeddingProviderInfo(config: ContextMcpConfig, embedding: OpenAIEmbedding | VoyageAIEmbedding | GeminiEmbedding | OllamaEmbedding): void {
+export function logEmbeddingProviderInfo(config: ContextMcpConfig, embedding: OpenAIEmbedding | VoyageAIEmbedding | GeminiEmbedding | OllamaEmbedding | HuggingFaceEmbedding | OpenRouterEmbedding | VertexAIEmbedding | BedrockEmbedding): void {
     console.log(`[EMBEDDING] ✅ Successfully initialized ${config.embeddingProvider} embedding provider`);
     console.log(`[EMBEDDING] Provider details - Model: ${config.embeddingModel}, Dimension: ${embedding.getDimension()}`);
 
@@ -79,6 +139,18 @@ export function logEmbeddingProviderInfo(config: ContextMcpConfig, embedding: Op
             break;
         case 'Ollama':
             console.log(`[EMBEDDING] Ollama configuration - Host: ${config.ollamaHost || 'http://127.0.0.1:11434'}, Model: ${config.embeddingModel}`);
+            break;
+        case 'HuggingFace':
+            console.log(`[EMBEDDING] HuggingFace configuration - API Key: ${config.huggingfaceApiKey ? '✅ Provided' : '❌ Missing'}, Base URL: ${config.huggingfaceBaseUrl || 'Default'}, Model: ${config.embeddingModel}`);
+            break;
+        case 'OpenRouter':
+            console.log(`[EMBEDDING] OpenRouter configuration - API Key: ${config.openrouterApiKey ? '✅ Provided' : '❌ Missing'}, Base URL: ${config.openrouterBaseUrl || 'https://openrouter.ai/api/v1'}, Model: ${config.embeddingModel}`);
+            break;
+        case 'VertexAI':
+            console.log(`[EMBEDDING] VertexAI configuration - Project: ${config.vertexaiProjectId}, Location: ${config.vertexaiLocation}, Key File: ${config.vertexaiKeyFilename || 'Service Account'}, Model: ${config.embeddingModel}`);
+            break;
+        case 'Bedrock':
+            console.log(`[EMBEDDING] Bedrock configuration - Region: ${config.bedrockRegion}, Profile: ${config.bedrockProfile || 'Credentials'}, Model: ${config.embeddingModel}`);
             break;
     }
 } 

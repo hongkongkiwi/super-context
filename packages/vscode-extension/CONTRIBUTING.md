@@ -1,6 +1,6 @@
 # Contributing to VSCode Extension
 
-Thanks for your interest in contributing to the Claude Context VSCode extension!
+Thanks for your interest in contributing to the Super Context VSCode extension!
 
 > 📖 **First time contributing?** Please read the [main contributing guide](../../CONTRIBUTING.md) first for general setup and workflow.
 
@@ -60,7 +60,7 @@ Press `F5` to launch Extension Development Host
 ## Extension Features
 
 - Semantic code search within VSCode
-- Integration with Claude Context core
+- Integration with Super Context core
 - Progress indicators for indexing
 - Search results in sidebar
 
@@ -90,10 +90,10 @@ cd packages/vscode-extension
 pnpm run package
 
 # Uninstall any existing version
-code --uninstall-extension semanticcodesearch-xxx.vsix
+code --uninstall-extension @hongkongkiwi/super-context-vscode-xxx.vsix
 
 # Install the packaged extension
-code --install-extension semanticcodesearch-xxx.vsix
+code --install-extension @hongkongkiwi/super-context-vscode-xxx.vsix
 ```
 
 After installation, the extension will be available in VSCode just like any marketplace extension. This method:

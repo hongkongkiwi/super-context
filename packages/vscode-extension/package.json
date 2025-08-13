@@ -1,8 +1,8 @@
 {
-    "name": "semanticcodesearch",
-    "displayName": "Semantic Code Search",
+    "name": "@hongkongkiwi/super-context-vscode",
+    "displayName": "Super Context - Semantic Code Search",
     "publisher": "zilliz",
-    "description": "Code indexing and semantic search (built by Claude Context)",
+    "description": "Code indexing and semantic search (built by Super Context)",
     "version": "0.1.1",
     "private": true,
     "engines": {
@@ -83,7 +83,11 @@
                         "OpenAI",
                         "VoyageAI",
                         "Ollama",
-                        "Gemini"
+                        "Gemini",
+                        "HuggingFace",
+                        "OpenRouter",
+                        "VertexAI",
+                        "Bedrock"
                     ],
                     "description": "Embedding service provider"
                 },
@@ -111,6 +115,21 @@
                     "type": "number",
                     "description": "Output dimension for Gemini embedding (supports Matryoshka representation: 3072, 1536, 768, 256)"
                 },
+                "semanticCodeSearch.vectorDatabase.type": {
+                    "type": "string",
+                    "enum": [
+                        "milvus",
+                        "qdrant",
+                        "pinecone",
+                        "pgvector",
+                        "weaviate",
+                        "chroma",
+                        "faiss",
+                        "upstash"
+                    ],
+                    "default": "milvus",
+                    "description": "Vector database type to use"
+                },
                 "semanticCodeSearch.milvus.address": {
                     "type": "string",
                     "description": "Milvus server address (e.g., http://localhost:19530)"
@@ -118,6 +137,66 @@
                 "semanticCodeSearch.milvus.token": {
                     "type": "string",
                     "description": "Milvus authentication token (optional)"
+                },
+                "semanticCodeSearch.qdrant.url": {
+                    "type": "string",
+                    "description": "Qdrant server URL (e.g., http://localhost:6333 or https://your-cluster.qdrant.io)"
+                },
+                "semanticCodeSearch.qdrant.apiKey": {
+                    "type": "string",
+                    "description": "Qdrant API key (required for Qdrant Cloud)"
+                },
+                "semanticCodeSearch.pinecone.apiKey": {
+                    "type": "string",
+                    "description": "Pinecone API key (required)"
+                },
+                "semanticCodeSearch.pinecone.indexName": {
+                    "type": "string",
+                    "description": "Pinecone index name"
+                },
+                "semanticCodeSearch.pgvector.host": {
+                    "type": "string",
+                    "description": "PostgreSQL host"
+                },
+                "semanticCodeSearch.pgvector.database": {
+                    "type": "string",
+                    "description": "PostgreSQL database name"
+                },
+                "semanticCodeSearch.pgvector.user": {
+                    "type": "string",
+                    "description": "PostgreSQL username"
+                },
+                "semanticCodeSearch.pgvector.password": {
+                    "type": "string",
+                    "description": "PostgreSQL password"
+                },
+                "semanticCodeSearch.weaviate.host": {
+                    "type": "string",
+                    "description": "Weaviate host (e.g., localhost:8080)"
+                },
+                "semanticCodeSearch.weaviate.apiKey": {
+                    "type": "string",
+                    "description": "Weaviate API key (optional)"
+                },
+                "semanticCodeSearch.chroma.host": {
+                    "type": "string",
+                    "description": "Chroma server host (default: localhost)"
+                },
+                "semanticCodeSearch.chroma.port": {
+                    "type": "number",
+                    "description": "Chroma server port (default: 8000)"
+                },
+                "semanticCodeSearch.upstash.url": {
+                    "type": "string",
+                    "description": "Upstash Vector URL"
+                },
+                "semanticCodeSearch.upstash.token": {
+                    "type": "string",
+                    "description": "Upstash Vector token"
+                },
+                "semanticCodeSearch.faiss.dataPath": {
+                    "type": "string",
+                    "description": "Faiss data storage path (default: ./faiss_data)"
                 },
                 "semanticCodeSearch.autoSync.enabled": {
                     "type": "boolean",
@@ -175,7 +254,7 @@
         "release": "vsce publish --no-dependencies"
     },
     "dependencies": {
-        "@zilliz/claude-context-core": "workspace:*",
+        "@hongkongkiwi/super-context-core": "workspace:*",
         "web-tree-sitter": "^0.25.6"
     },
     "devDependencies": {
@@ -194,8 +273,13 @@
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/zilliztech/claude-context.git",
+        "url": "https://github.com/hongkongkiwi/super-context.git",
         "directory": "packages/vscode-extension"
     },
-    "license": "MIT"
+    "license": "MIT",
+    "author": "hongkongkiwi",
+    "contributors": [
+        "Zilliz (Original author)"
+    ],
+    "forkedFrom": "https://github.com/zilliztech/claude-context"
 }

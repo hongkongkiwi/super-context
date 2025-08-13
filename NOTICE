@@ -1,0 +1,26 @@
+NOTICE
+
+Super Context
+Copyright (c) 2025 hongkongkiwi
+
+This project is a fork of Claude Context, originally created by Zilliz.
+
+Original Project:
+- Name: Claude Context
+- Author: Zilliz (Cheney Zhang <277584121@qq.com>)
+- Source: https://github.com/zilliztech/claude-context
+- License: MIT License
+
+This fork includes modifications and enhancements while maintaining compatibility
+with the original project's MIT License.
+
+Modifications include but are not limited to:
+- Rebranding from "Claude Context" to "Super Context"
+- Namespace changes to @hongkongkiwi organization
+- Bug fixes and compilation error resolutions
+- Additional features and improvements
+
+Third-party dependencies and their licenses are listed in the respective
+package.json files in each package directory.
+
+For the full MIT License text, see the LICENSE file in this repository.

@@ -1,6 +1,6 @@
 # Prerequisites
 
-Before setting up Claude Context, ensure you have the following requirements met.
+Before setting up Super Context, ensure you have the following requirements met.
 
 ## Required Services
 
@@ -42,7 +42,7 @@ Before setting up Claude Context, ensure you have the following requirements met
 
 ### For VSCode Extension
 - **VSCode**: Version 1.74.0 or higher
-- **Extensions**: Claude Context extension from marketplace
+- **Extensions**: Super Context extension from marketplace
 
 
 ### For Development Contributions

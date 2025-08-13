@@ -1,8 +1,8 @@
 # Project Overview
 
-## What is Claude Context?
+## What is Super Context?
 
-Claude Context is a powerful semantic code search tool that gives AI coding assistants deep understanding of your entire codebase. Instead of traditional keyword-based search, Claude Context uses vector embeddings and AI to understand the meaning and context of your code.
+Super Context is a powerful semantic code search tool that gives AI coding assistants deep understanding of your entire codebase. Instead of traditional keyword-based search, Super Context uses vector embeddings and AI to understand the meaning and context of your code.
 
 ## Key Features
 
@@ -27,7 +27,7 @@ Configure file extensions, ignore patterns, embedding models, and search paramet
 ## How It Works
 
 ### 1. Code Analysis
-Claude Context analyzes your codebase using AST parsers to understand code structure and semantics.
+Super Context analyzes your codebase using AST parsers to understand code structure and semantics.
 
 ### 2. Intelligent Chunking
 Code is split into meaningful chunks that preserve context, function boundaries, and logical groupings.
@@ -43,14 +43,14 @@ Natural language queries are processed using both dense vector embeddings and BM
 
 ## Architecture Components
 
-### Core Engine (`@zilliz/claude-context-core`)
+### Core Engine (`@hongkongkiwi/super-context-core`)
 The foundational indexing engine that handles:
 - Code parsing and analysis
 - Embedding generation
 - Vector database operations
 - Search algorithms
 
-### MCP Server (`@zilliz/claude-context-mcp`)
+### MCP Server (`@hongkongkiwi/super-context-mcp`)
 Model Context Protocol server that enables integration with AI assistants:
 - Standardized tool interface
 - Compatible with Claude Code, Cursor, Windsurf, and more

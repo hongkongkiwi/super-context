@@ -54,7 +54,7 @@ export class OllamaEmbedding extends Embedding {
         }
     }
 
-    async embed(text: string): Promise<EmbeddingVector> {
+    protected async embedInternal(text: string): Promise<EmbeddingVector> {
         // Preprocess the text
         const processedText = this.preprocessText(text);
 
@@ -88,7 +88,7 @@ export class OllamaEmbedding extends Embedding {
         };
     }
 
-    async embedBatch(texts: string[]): Promise<EmbeddingVector[]> {
+    protected async embedBatchInternal(texts: string[]): Promise<EmbeddingVector[]> {
         // Preprocess all texts
         const processedTexts = this.preprocessTexts(texts);
 

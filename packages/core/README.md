@@ -1,17 +1,19 @@
-# @zilliz/claude-context-core
-![](../../assets/claude-context.png)
+# @hongkongkiwi/super-context-core
+![](../../assets/super-context.png)
 
-The core indexing engine for Claude Context - a powerful tool for semantic search and analysis of codebases using vector embeddings and AI.
+The core indexing engine for Super Context - a powerful tool for semantic search and analysis of codebases using vector embeddings and AI.
 
-[![npm version](https://img.shields.io/npm/v/@zilliz/claude-context-core.svg)](https://www.npmjs.com/package/@zilliz/claude-context-core)
-[![npm downloads](https://img.shields.io/npm/dm/@zilliz/claude-context-core.svg)](https://www.npmjs.com/package/@zilliz/claude-context-core)
+> **Attribution**: This package is part of Super Context, a fork of [Claude Context](https://github.com/zilliztech/claude-context) originally created by Zilliz.
 
-> 📖 **New to Claude Context?** Check out the [main project README](../../README.md) for an overview and quick start guide.
+[![npm version](https://img.shields.io/npm/v/@hongkongkiwi/super-context-core.svg)](https://www.npmjs.com/package/@hongkongkiwi/super-context-core)
+[![npm downloads](https://img.shields.io/npm/dm/@hongkongkiwi/super-context-core.svg)](https://www.npmjs.com/package/@hongkongkiwi/super-context-core)
+
+> 📖 **New to Super Context?** Check out the [main project README](../../README.md) for an overview and quick start guide.
 
 ## Installation
 
 ```bash
-npm install @zilliz/claude-context-core
+npm install @hongkongkiwi/super-context-core
 ```
 
 ### Prepare Environment Variables
@@ -24,7 +26,7 @@ OPENAI_API_KEY=your-openai-api-key
 #### Zilliz Cloud configuration
 Get a free Milvus vector database on Zilliz Cloud. 
 
-Claude Context needs a vector database. You can [sign up](https://cloud.zilliz.com/signup?utm_source=github&utm_medium=referral&utm_campaign=2507-codecontext-readme) on Zilliz Cloud to get a free Serverless cluster.
+Super Context needs a vector database. You can [sign up](https://cloud.zilliz.com/signup?utm_source=github&utm_medium=referral&utm_campaign=2507-codecontext-readme) on Zilliz Cloud to get a free Serverless cluster.
 
 ![](../../assets/signup_and_create_cluster.jpeg)
 
@@ -51,7 +53,7 @@ import {
   Context, 
   OpenAIEmbedding, 
   MilvusVectorDatabase 
-} from '@zilliz/claude-context-core';
+} from '@hongkongkiwi/super-context-core';
 
 // Initialize embedding provider
 const embedding = new OpenAIEmbedding({
@@ -183,7 +185,7 @@ interface SemanticSearchResult {
 ### Using VoyageAI Embeddings
 
 ```typescript
-import { Context, MilvusVectorDatabase, VoyageAIEmbedding } from '@zilliz/claude-context-core';
+import { Context, MilvusVectorDatabase, VoyageAIEmbedding } from '@hongkongkiwi/super-context-core';
 
 // Initialize with VoyageAI embedding provider
 const embedding = new VoyageAIEmbedding({
@@ -220,7 +222,7 @@ const context = new Context({
 
 ## File Synchronization Architecture
 
-Claude Context implements an intelligent file synchronization system that efficiently tracks and processes only the files that have changed since the last indexing operation. This dramatically improves performance when working with large codebases.
+Super Context implements an intelligent file synchronization system that efficiently tracks and processes only the files that have changed since the last indexing operation. This dramatically improves performance when working with large codebases.
 
 ![File Synchronization Architecture](../../assets/file_synchronizer.png)
 
@@ -260,13 +262,13 @@ The file synchronization system uses a **Merkle tree-based approach** combined w
 
 ## Contributing
 
-This package is part of the Claude Context monorepo. Please see:
+This package is part of the Super Context monorepo. Please see:
 - [Main Contributing Guide](../../CONTRIBUTING.md) - General contribution guidelines
 - [Core Package Contributing](CONTRIBUTING.md) - Specific development guide for this package
 
 ## Related Packages
 
-- **[@claude-context/mcp](../mcp)** - MCP server that uses this core engine
+- **[@super-context/mcp](../mcp)** - MCP server that uses this core engine
 - **[VSCode Extension](../vscode-extension)** - VSCode extension built on this core
 
 

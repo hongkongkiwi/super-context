@@ -1,8 +1,10 @@
 # GitHub Code Vector Search Chrome Extension
 
-A Chrome extension for indexing and semantically searching GitHub repository code, powered by Claude Context.
+A Chrome extension for indexing and semantically searching GitHub repository code, powered by Super Context.
 
-> 📖 **New to Claude Context?** Check out the [main project README](../../README.md) for an overview and setup instructions.
+> **Attribution**: This extension is part of Super Context, a fork of [Claude Context](https://github.com/zilliztech/claude-context) originally created by Zilliz.
+
+> 📖 **New to Super Context?** Check out the [main project README](../../README.md) for an overview and setup instructions.
 
 ## Features
 
@@ -109,22 +111,22 @@ The extension requires the following permissions:
 
 ## Contributing
 
-This Chrome extension is part of the Claude Context monorepo. Please see:
+This Chrome extension is part of the Super Context monorepo. Please see:
 - [Main Contributing Guide](../../CONTRIBUTING.md) - General contribution guidelines
 - [Chrome Extension Contributing](CONTRIBUTING.md) - Specific development guide for this extension
 
 ## Related Packages
 
-- **[@zilliz/claude-context-core](../core)** - Core indexing engine used by this extension
-- **[@zilliz/claude-context-vscode-extension](../vscode-extension)** - VSCode integration
-- **[@zilliz/claude-context-mcp](../mcp)** - MCP server integration
+- **[@hongkongkiwi/super-context-core](../core)** - Core indexing engine used by this extension
+- **[@zilliz/super-context-vscode-extension](../vscode-extension)** - VSCode integration
+- **[@hongkongkiwi/super-context-mcp](../mcp)** - MCP server integration
 
 ## Tech Stack
 
 - **TypeScript** - Type-safe development
 - **Chrome Extension Manifest V3** - Modern extension architecture
 - **Webpack** - Module bundling and optimization
-- **Claude Context Core** - Semantic search engine
+- **Super Context Core** - Semantic search engine
 - **Milvus Vector Database** - Vector storage and retrieval
 - **OpenAI/VoyageAI Embeddings** - Text embedding generation
 

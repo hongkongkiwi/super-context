@@ -1,5 +1,6 @@
 import Parser from 'tree-sitter';
 import { Splitter, CodeChunk } from './index';
+import { ResourcePool } from '../utils/mutex';
 
 // Language parsers
 const JavaScript = require('tree-sitter-javascript');
@@ -28,13 +29,29 @@ const SPLITTABLE_NODE_TYPES = {
 export class AstCodeSplitter implements Splitter {
     private chunkSize: number = 2500;
     private chunkOverlap: number = 300;
-    private parser: Parser;
+    private parserPool: ResourcePool<Parser>;
     private langchainFallback: any; // LangChainCodeSplitter for fallback
+    private treeCleanupQueue: Set<Parser.Tree> = new Set();
 
     constructor(chunkSize?: number, chunkOverlap?: number) {
         if (chunkSize) this.chunkSize = chunkSize;
         if (chunkOverlap) this.chunkOverlap = chunkOverlap;
-        this.parser = new Parser();
+        
+        // Create a resource pool for parsers to prevent memory leaks
+        this.parserPool = new ResourcePool<Parser>(
+            () => new Parser(),
+            (parser: Parser) => {
+                // Cleanup parser resources
+                try {
+                    // Delete any existing language to free memory
+                    parser.reset();
+                } catch (error) {
+                    console.warn(`⚠️  Warning: Failed to reset parser during cleanup: ${error}`);
+                }
+            },
+            2, // Initial pool size
+            5  // Max pool size
+        );
 
         // Initialize fallback splitter
         const { LangChainCodeSplitter } = require('./langchain-splitter');
@@ -49,28 +66,35 @@ export class AstCodeSplitter implements Splitter {
             return await this.langchainFallback.split(code, language, filePath);
         }
 
-        try {
-            console.log(`🌳 Using AST splitter for ${language} file: ${filePath || 'unknown'}`);
+        // Use resource pool to get a parser and ensure proper cleanup
+        return await this.parserPool.runWithResource(async (parser: Parser) => {
+            let tree: Parser.Tree | null = null;
+            try {
+                console.log(`🌳 Using AST splitter for ${language} file: ${filePath || 'unknown'}`);
 
-            this.parser.setLanguage(langConfig.parser);
-            const tree = this.parser.parse(code);
+                parser.setLanguage(langConfig.parser);
+                tree = parser.parse(code);
 
-            if (!tree.rootNode) {
-                console.warn(`⚠️  Failed to parse AST for ${language}, falling back to LangChain: ${filePath || 'unknown'}`);
+                if (!tree?.rootNode) {
+                    console.warn(`⚠️  Failed to parse AST for ${language}, falling back to LangChain: ${filePath || 'unknown'}`);
+                    return await this.langchainFallback.split(code, language, filePath);
+                }
+
+                // Extract chunks based on AST nodes
+                const chunks = this.extractChunks(tree.rootNode, code, langConfig.nodeTypes, language, filePath);
+
+                // If chunks are too large, split them further
+                const refinedChunks = await this.refineChunks(chunks, code);
+
+                return refinedChunks;
+            } catch (error) {
+                console.warn(`⚠️  AST splitter failed for ${language}, falling back to LangChain: ${error}`);
                 return await this.langchainFallback.split(code, language, filePath);
+            } finally {
+                // CRITICAL: Always clean up the tree to prevent memory leaks
+                this.cleanupTree(tree);
             }
-
-            // Extract chunks based on AST nodes
-            const chunks = this.extractChunks(tree.rootNode, code, langConfig.nodeTypes, language, filePath);
-
-            // If chunks are too large, split them further
-            const refinedChunks = await this.refineChunks(chunks, code);
-
-            return refinedChunks;
-        } catch (error) {
-            console.warn(`⚠️  AST splitter failed for ${language}, falling back to LangChain: ${error}`);
-            return await this.langchainFallback.split(code, language, filePath);
-        }
+        });
     }
 
     setChunkSize(chunkSize: number): void {
@@ -266,5 +290,74 @@ export class AstCodeSplitter implements Splitter {
             'java', 'cpp', 'c++', 'c', 'go', 'rust', 'rs', 'cs', 'csharp', 'scala'
         ];
         return supportedLanguages.includes(language.toLowerCase());
+    }
+
+    /**
+     * Safely cleanup tree-sitter tree to prevent memory leaks
+     */
+    private cleanupTree(tree: Parser.Tree | null): void {
+        if (!tree) return;
+        
+        try {
+            // Mark tree for cleanup
+            this.treeCleanupQueue.add(tree);
+            
+            // Tree-sitter trees need explicit deletion to free native memory
+            if (typeof (tree as any).delete === 'function') {
+                (tree as any).delete();
+                this.treeCleanupQueue.delete(tree);
+            } else {
+                // Fallback: let GC handle it but warn
+                console.warn(`⚠️  Warning: Tree delete method not available, relying on GC`);
+            }
+        } catch (error) {
+            console.warn(`⚠️  Warning: Failed to cleanup tree: ${error}`);
+            // Remove from queue even on error to prevent memory buildup
+            this.treeCleanupQueue.delete(tree);
+        }
+    }
+
+    /**
+     * Force cleanup of any remaining trees
+     */
+    private forceCleanupAllTrees(): void {
+        if (this.treeCleanupQueue.size > 0) {
+            console.warn(`⚠️  Forcing cleanup of ${this.treeCleanupQueue.size} remaining trees`);
+            for (const tree of this.treeCleanupQueue) {
+                try {
+                    if (typeof (tree as any).delete === 'function') {
+                        (tree as any).delete();
+                    }
+                } catch (error) {
+                    // Ignore errors during forced cleanup
+                }
+            }
+            this.treeCleanupQueue.clear();
+        }
+    }
+
+    /**
+     * Dispose of all resources and clean up memory
+     * IMPORTANT: Call this when done using the AST splitter to prevent memory leaks
+     */
+    dispose(): void {
+        try {
+            console.log('🧹 Disposing AST splitter resources...');
+            
+            // Force cleanup any remaining trees
+            this.forceCleanupAllTrees();
+            
+            // Destroy parser pool
+            this.parserPool.destroy();
+            
+            // Also dispose the LangChain fallback if it has a dispose method
+            if (this.langchainFallback && typeof this.langchainFallback.dispose === 'function') {
+                this.langchainFallback.dispose();
+            }
+            
+            console.log('✅ AST splitter resources disposed');
+        } catch (error) {
+            console.warn(`⚠️  Warning: Failed to dispose AST splitter resources: ${error}`);
+        }
     }
 }

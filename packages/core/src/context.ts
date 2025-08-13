@@ -10,6 +10,7 @@ import {
 } from './embedding';
 import {
     VectorDatabase,
+    CollectionAwareVectorDatabase,
     VectorDocument,
     VectorSearchResult,
     HybridSearchRequest,
@@ -18,6 +19,9 @@ import {
 } from './vectordb';
 import { SemanticSearchResult } from './types';
 import { envManager } from './utils/env-manager';
+import { Mutex, Semaphore, ConcurrentTaskQueue, ResourcePool } from './utils/mutex';
+import { ErrorHandler, ContextError, ErrorCategory, ErrorSeverity, withErrorHandling } from './utils/error-handler';
+import { SecurityUtils, SecurityError } from './utils/security';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
@@ -88,7 +92,7 @@ const DEFAULT_IGNORE_PATTERNS = [
 
 export interface ContextConfig {
     embedding?: Embedding;
-    vectorDatabase?: VectorDatabase;
+    vectorDatabase?: CollectionAwareVectorDatabase;
     codeSplitter?: Splitter;
     supportedExtensions?: string[];
     ignorePatterns?: string[];
@@ -98,11 +102,18 @@ export interface ContextConfig {
 
 export class Context {
     private embedding: Embedding;
-    private vectorDatabase: VectorDatabase;
+    private vectorDatabase: CollectionAwareVectorDatabase;
     private codeSplitter: Splitter;
     private supportedExtensions: string[];
     private ignorePatterns: string[];
     private synchronizers = new Map<string, FileSynchronizer>();
+    
+    // Synchronization primitives to prevent race conditions
+    private readonly indexingMutex = new Mutex();
+    private readonly searchSemaphore = new Semaphore(5); // Allow up to 5 concurrent searches
+    private readonly fileProcessingQueue = new ConcurrentTaskQueue(3); // Process 3 files concurrently
+    private readonly vectorDbMutex = new Mutex(); // Protect vector database operations
+    private readonly collectionMutexes = new Map<string, Mutex>(); // Per-collection mutexes
 
     constructor(config: ContextConfig = {}) {
         // Initialize services
@@ -164,7 +175,7 @@ export class Context {
     /**
      * Get vector database instance
      */
-    getVectorDatabase(): VectorDatabase {
+    getVectorDatabase(): CollectionAwareVectorDatabase {
         return this.vectorDatabase;
     }
 
@@ -251,17 +262,20 @@ export class Context {
         progressCallback?: (progress: { phase: string; current: number; total: number; percentage: number }) => void,
         forceReindex: boolean = false
     ): Promise<{ indexedFiles: number; totalChunks: number; status: 'completed' | 'limit_reached' }> {
-        const isHybrid = this.getIsHybrid();
-        const searchType = isHybrid === true ? 'hybrid search' : 'semantic search';
-        console.log(`🚀 Starting to index codebase with ${searchType}: ${codebasePath}`);
+        // Use mutex to prevent concurrent indexing operations on the same codebase
+        return this.indexingMutex.runExclusive(async () => {
+            try {
+                const isHybrid = this.getIsHybrid();
+                const searchType = isHybrid === true ? 'hybrid search' : 'semantic search';
+                console.log(`🚀 Starting to index codebase with ${searchType}: ${codebasePath}`);
 
-        // 1. Load ignore patterns from various ignore files
-        await this.loadIgnorePatterns(codebasePath);
+                // 1. Load ignore patterns from various ignore files
+                await this.loadIgnorePatterns(codebasePath);
 
-        // 2. Check and prepare vector collection
-        progressCallback?.({ phase: 'Preparing collection...', current: 0, total: 100, percentage: 0 });
-        console.log(`Debug2: Preparing vector collection for codebase${forceReindex ? ' (FORCE REINDEX)' : ''}`);
-        await this.prepareCollection(codebasePath, forceReindex);
+                // 2. Check and prepare vector collection with proper synchronization
+                progressCallback?.({ phase: 'Preparing collection...', current: 0, total: 100, percentage: 0 });
+                console.log(`Debug2: Preparing vector collection for codebase${forceReindex ? ' (FORCE REINDEX)' : ''}`);
+                await this.prepareCollectionSafely(codebasePath, forceReindex);
 
         // 3. Recursively traverse codebase to get all supported files
         progressCallback?.({ phase: 'Scanning files...', current: 5, total: 100, percentage: 5 });
@@ -296,104 +310,126 @@ export class Context {
             }
         );
 
-        console.log(`✅ Codebase indexing completed! Processed ${result.processedFiles} files in total, generated ${result.totalChunks} code chunks`);
+                console.log(`✅ Codebase indexing completed! Processed ${result.processedFiles} files in total, generated ${result.totalChunks} code chunks`);
 
-        progressCallback?.({
-            phase: 'Indexing complete!',
-            current: result.processedFiles,
-            total: codeFiles.length,
-            percentage: 100
+                progressCallback?.({
+                    phase: 'Indexing complete!',
+                    current: result.processedFiles,
+                    total: codeFiles.length,
+                    percentage: 100
+                });
+
+                return {
+                    indexedFiles: result.processedFiles,
+                    totalChunks: result.totalChunks,
+                    status: result.status
+                };
+            } catch (error) {
+                console.error(`❌ Error during codebase indexing: ${error}`);
+                progressCallback?.({
+                    phase: 'Indexing failed',
+                    current: 0,
+                    total: 100,
+                    percentage: 0
+                });
+                throw error;
+            }
         });
-
-        return {
-            indexedFiles: result.processedFiles,
-            totalChunks: result.totalChunks,
-            status: result.status
-        };
     }
 
     async reindexByChange(
         codebasePath: string,
         progressCallback?: (progress: { phase: string; current: number; total: number; percentage: number }) => void
     ): Promise<{ added: number, removed: number, modified: number }> {
-        const collectionName = this.getCollectionName(codebasePath);
-        const synchronizer = this.synchronizers.get(collectionName);
+        // Use indexing mutex to prevent concurrent indexing operations
+        return this.indexingMutex.runExclusive(async () => {
+            try {
+                const collectionName = this.getCollectionName(codebasePath);
+                const synchronizer = this.synchronizers.get(collectionName);
 
-        if (!synchronizer) {
-            // Load project-specific ignore patterns before creating FileSynchronizer
-            await this.loadIgnorePatterns(codebasePath);
+                if (!synchronizer) {
+                    // Load project-specific ignore patterns before creating FileSynchronizer
+                    await this.loadIgnorePatterns(codebasePath);
 
-            // To be safe, let's initialize if it's not there.
-            const newSynchronizer = new FileSynchronizer(codebasePath, this.ignorePatterns);
-            await newSynchronizer.initialize();
-            this.synchronizers.set(collectionName, newSynchronizer);
-        }
-
-        const currentSynchronizer = this.synchronizers.get(collectionName)!;
-
-        progressCallback?.({ phase: 'Checking for file changes...', current: 0, total: 100, percentage: 0 });
-        const { added, removed, modified } = await currentSynchronizer.checkForChanges();
-        const totalChanges = added.length + removed.length + modified.length;
-
-        if (totalChanges === 0) {
-            progressCallback?.({ phase: 'No changes detected', current: 100, total: 100, percentage: 100 });
-            console.log('✅ No file changes detected.');
-            return { added: 0, removed: 0, modified: 0 };
-        }
-
-        console.log(`🔄 Found changes: ${added.length} added, ${removed.length} removed, ${modified.length} modified.`);
-
-        let processedChanges = 0;
-        const updateProgress = (phase: string) => {
-            processedChanges++;
-            const percentage = Math.round((processedChanges / (removed.length + modified.length + added.length)) * 100);
-            progressCallback?.({ phase, current: processedChanges, total: totalChanges, percentage });
-        };
-
-        // Handle removed files
-        for (const file of removed) {
-            await this.deleteFileChunks(collectionName, file);
-            updateProgress(`Removed ${file}`);
-        }
-
-        // Handle modified files
-        for (const file of modified) {
-            await this.deleteFileChunks(collectionName, file);
-            updateProgress(`Deleted old chunks for ${file}`);
-        }
-
-        // Handle added and modified files
-        const filesToIndex = [...added, ...modified].map(f => path.join(codebasePath, f));
-
-        if (filesToIndex.length > 0) {
-            await this.processFileList(
-                filesToIndex,
-                codebasePath,
-                (filePath, fileIndex, totalFiles) => {
-                    updateProgress(`Indexed ${filePath} (${fileIndex}/${totalFiles})`);
+                    // To be safe, let's initialize if it's not there.
+                    const newSynchronizer = new FileSynchronizer(codebasePath, this.ignorePatterns);
+                    await newSynchronizer.initialize();
+                    this.synchronizers.set(collectionName, newSynchronizer);
                 }
-            );
-        }
 
-        console.log(`✅ Re-indexing complete. Added: ${added.length}, Removed: ${removed.length}, Modified: ${modified.length}`);
-        progressCallback?.({ phase: 'Re-indexing complete!', current: totalChanges, total: totalChanges, percentage: 100 });
+                const currentSynchronizer = this.synchronizers.get(collectionName)!;
 
-        return { added: added.length, removed: removed.length, modified: modified.length };
+                progressCallback?.({ phase: 'Checking for file changes...', current: 0, total: 100, percentage: 0 });
+                const { added, removed, modified } = await currentSynchronizer.checkForChanges();
+                const totalChanges = added.length + removed.length + modified.length;
+
+                if (totalChanges === 0) {
+                    progressCallback?.({ phase: 'No changes detected', current: 100, total: 100, percentage: 100 });
+                    console.log('✅ No file changes detected.');
+                    return { added: 0, removed: 0, modified: 0 };
+                }
+
+                console.log(`🔄 Found changes: ${added.length} added, ${removed.length} removed, ${modified.length} modified.`);
+
+                let processedChanges = 0;
+                const updateProgress = (phase: string) => {
+                    processedChanges++;
+                    const percentage = Math.round((processedChanges / (removed.length + modified.length + added.length)) * 100);
+                    progressCallback?.({ phase, current: processedChanges, total: totalChanges, percentage });
+                };
+
+                // Handle removed files
+                for (const file of removed) {
+                    await this.deleteFileChunks(collectionName, file);
+                    updateProgress(`Removed ${file}`);
+                }
+
+                // Handle modified files
+                for (const file of modified) {
+                    await this.deleteFileChunks(collectionName, file);
+                    updateProgress(`Deleted old chunks for ${file}`);
+                }
+
+                // Handle added and modified files
+                const filesToIndex = [...added, ...modified].map(f => path.join(codebasePath, f));
+
+                if (filesToIndex.length > 0) {
+                    await this.processFileList(
+                        filesToIndex,
+                        codebasePath,
+                        (filePath, fileIndex, totalFiles) => {
+                            updateProgress(`Indexed ${filePath} (${fileIndex}/${totalFiles})`);
+                        }
+                    );
+                }
+
+                console.log(`✅ Re-indexing complete. Added: ${added.length}, Removed: ${removed.length}, Modified: ${modified.length}`);
+                progressCallback?.({ phase: 'Re-indexing complete!', current: totalChanges, total: totalChanges, percentage: 100 });
+
+                return { added: added.length, removed: removed.length, modified: modified.length };
+            } catch (error) {
+                console.error(`❌ Error during reindex by change: ${error}`);
+                if (error instanceof Error) {
+                    console.error('Stack trace:', error.stack);
+                }
+                throw error;
+            }
+        });
     }
 
     private async deleteFileChunks(collectionName: string, relativePath: string): Promise<void> {
         // Escape backslashes for Milvus query expression (Windows path compatibility)
         const escapedPath = relativePath.replace(/\\/g, '\\\\');
-        const results = await this.vectorDatabase.query(
+        const results = await (this.vectorDatabase as any).query(
             collectionName,
             `relativePath == "${escapedPath}"`,
             ['id']
         );
 
         if (results.length > 0) {
-            const ids = results.map(r => r.id as string).filter(id => id);
+            const ids = results.map((r: any) => r.id as string).filter((id: string) => id);
             if (ids.length > 0) {
-                await this.vectorDatabase.delete(collectionName, ids);
+                await (this.vectorDatabase as any).delete(collectionName, ids);
                 console.log(`Deleted ${ids.length} chunks for file ${relativePath}`);
             }
         }
@@ -407,12 +443,15 @@ export class Context {
      * @param threshold Similarity threshold
      */
     async semanticSearch(codebasePath: string, query: string, topK: number = 5, threshold: number = 0.5, filterExpr?: string): Promise<SemanticSearchResult[]> {
-        const isHybrid = this.getIsHybrid();
-        const searchType = isHybrid === true ? 'hybrid search' : 'semantic search';
-        console.log(`🔍 Executing ${searchType}: "${query}" in ${codebasePath}`);
+        // Use semaphore to limit concurrent searches to prevent resource exhaustion
+        return this.searchSemaphore.runExclusive(async () => {
+            try {
+                const isHybrid = this.getIsHybrid();
+                const searchType = isHybrid === true ? 'hybrid search' : 'semantic search';
+                console.log(`🔍 Executing ${searchType}: "${query}" in ${codebasePath}`);
 
-        const collectionName = this.getCollectionName(codebasePath);
-        console.log(`🔍 Using collection: ${collectionName}`);
+                const collectionName = this.getCollectionName(codebasePath);
+                console.log(`🔍 Using collection: ${collectionName}`);
 
         // Check if collection exists and has data
         const hasCollection = await this.vectorDatabase.hasCollection(collectionName);
@@ -424,7 +463,7 @@ export class Context {
         if (isHybrid === true) {
             try {
                 // Check collection stats to see if it has data
-                const stats = await this.vectorDatabase.query(collectionName, '', ['id'], 1);
+                const stats = await (this.vectorDatabase as any).query(collectionName, '', ['id'], 1);
                 console.log(`🔍 Collection '${collectionName}' exists and appears to have data`);
             } catch (error) {
                 console.log(`⚠️  Collection '${collectionName}' exists but may be empty or not properly indexed:`, error);
@@ -439,12 +478,15 @@ export class Context {
             // 2. Prepare hybrid search requests
             const searchRequests: HybridSearchRequest[] = [
                 {
+                    vector: queryEmbedding.vector,
                     data: queryEmbedding.vector,
                     anns_field: "vector",
                     param: { "nprobe": 10 },
                     limit: topK
                 },
                 {
+                    vector: queryEmbedding.vector,
+                    query: query,
                     data: query,
                     anns_field: "sparse_vector",
                     param: { "drop_ratio_search": 0.2 },
@@ -457,7 +499,7 @@ export class Context {
 
             // 3. Execute hybrid search
             console.log(`🔍 Executing hybrid search with RRF reranking...`);
-            const searchResults: HybridSearchResult[] = await this.vectorDatabase.hybridSearch(
+            const hybridResult = await this.vectorDatabase.hybridSearch?.(
                 collectionName,
                 searchRequests,
                 {
@@ -470,15 +512,28 @@ export class Context {
                 }
             );
 
-            console.log(`🔍 Raw search results count: ${searchResults.length}`);
+            if (!hybridResult) {
+                console.log(`⚠️  Hybrid search not supported, falling back to regular search`);
+                const searchResults = await this.vectorDatabase.search(collectionName, queryEmbedding.vector, { topK, threshold, filterExpr });
+                return searchResults.map((result: VectorSearchResult) => ({
+                    content: result.document.content,
+                    relativePath: result.document.relativePath,
+                    startLine: result.document.startLine,
+                    endLine: result.document.endLine,
+                    language: result.document.metadata?.language || 'unknown',
+                    score: result.score
+                }));
+            }
+
+            console.log(`🔍 Raw search results count: ${hybridResult[0]?.results?.length || 0}`);
 
             // 4. Convert to semantic search result format
-            const results: SemanticSearchResult[] = searchResults.map(result => ({
+            const results: SemanticSearchResult[] = (hybridResult[0]?.results || []).map((result: VectorSearchResult) => ({
                 content: result.document.content,
                 relativePath: result.document.relativePath,
                 startLine: result.document.startLine,
                 endLine: result.document.endLine,
-                language: result.document.metadata.language || 'unknown',
+                language: result.document.metadata?.language || 'unknown',
                 score: result.score
             }));
 
@@ -506,13 +561,21 @@ export class Context {
                 relativePath: result.document.relativePath,
                 startLine: result.document.startLine,
                 endLine: result.document.endLine,
-                language: result.document.metadata.language || 'unknown',
+                language: result.document.metadata?.language || 'unknown',
                 score: result.score
             }));
 
             console.log(`✅ Found ${results.length} relevant results`);
             return results;
         }
+            } catch (error) {
+                console.error(`❌ Error during semantic search: ${error}`);
+                if (error instanceof Error) {
+                    console.error('Stack trace:', error.stack);
+                }
+                throw error;
+            }
+        });
     }
 
     /**
@@ -534,24 +597,35 @@ export class Context {
         codebasePath: string,
         progressCallback?: (progress: { phase: string; current: number; total: number; percentage: number }) => void
     ): Promise<void> {
-        console.log(`🧹 Cleaning index data for ${codebasePath}...`);
+        // Use indexing mutex to prevent concurrent index operations
+        return this.indexingMutex.runExclusive(async () => {
+            try {
+                console.log(`🧹 Cleaning index data for ${codebasePath}...`);
 
-        progressCallback?.({ phase: 'Checking existing index...', current: 0, total: 100, percentage: 0 });
+                progressCallback?.({ phase: 'Checking existing index...', current: 0, total: 100, percentage: 0 });
 
-        const collectionName = this.getCollectionName(codebasePath);
-        const collectionExists = await this.vectorDatabase.hasCollection(collectionName);
+                const collectionName = this.getCollectionName(codebasePath);
+                const collectionExists = await this.vectorDatabase.hasCollection(collectionName);
 
-        progressCallback?.({ phase: 'Removing index data...', current: 50, total: 100, percentage: 50 });
+                progressCallback?.({ phase: 'Removing index data...', current: 50, total: 100, percentage: 50 });
 
-        if (collectionExists) {
-            await this.vectorDatabase.dropCollection(collectionName);
-        }
+                if (collectionExists) {
+                    await this.vectorDatabase.dropCollection(collectionName);
+                }
 
-        // Delete snapshot file
-        await FileSynchronizer.deleteSnapshot(codebasePath);
+                // Delete snapshot file
+                await FileSynchronizer.deleteSnapshot(codebasePath);
 
-        progressCallback?.({ phase: 'Index cleared', current: 100, total: 100, percentage: 100 });
-        console.log('✅ Index data cleaned');
+                progressCallback?.({ phase: 'Index cleared', current: 100, total: 100, percentage: 100 });
+                console.log('✅ Index data cleaned');
+            } catch (error) {
+                console.error(`❌ Error clearing index for ${codebasePath}: ${error}`);
+                if (error instanceof Error) {
+                    console.error('Stack trace:', error.stack);
+                }
+                throw error;
+            }
+        });
     }
 
     /**
@@ -605,7 +679,7 @@ export class Context {
      * Update vector database instance
      * @param vectorDatabase New vector database instance
      */
-    updateVectorDatabase(vectorDatabase: VectorDatabase): void {
+    updateVectorDatabase(vectorDatabase: CollectionAwareVectorDatabase): void {
         this.vectorDatabase = vectorDatabase;
         console.log(`🔄 Updated vector database`);
     }
@@ -648,7 +722,7 @@ export class Context {
         const dirName = path.basename(codebasePath);
 
         if (isHybrid === true) {
-            await this.vectorDatabase.createHybridCollection(collectionName, dimension, `Hybrid Index for ${dirName}`);
+            await (this.vectorDatabase as any).createHybridCollection(collectionName, dimension, `Hybrid Index for ${dirName}`);
         } else {
             await this.vectorDatabase.createCollection(collectionName, dimension, `Index for ${dirName}`);
         }
@@ -657,34 +731,104 @@ export class Context {
     }
 
     /**
+     * Thread-safe version of prepareCollection that prevents concurrent collection operations
+     */
+    private async prepareCollectionSafely(codebasePath: string, forceReindex: boolean = false): Promise<void> {
+        const collectionName = this.getCollectionName(codebasePath);
+        
+        // Get or create a mutex for this specific collection
+        let collectionMutex = this.collectionMutexes.get(collectionName);
+        if (!collectionMutex) {
+            collectionMutex = new Mutex();
+            this.collectionMutexes.set(collectionName, collectionMutex);
+        }
+
+        return collectionMutex.runExclusive(async () => {
+            try {
+                await this.prepareCollection(codebasePath, forceReindex);
+            } catch (error) {
+                console.error(`❌ Failed to prepare collection ${collectionName}: ${error}`);
+                throw error;
+            }
+        });
+    }
+
+    /**
+     * Get collection mutex for thread-safe operations
+     */
+    private getCollectionMutex(collectionName: string): Mutex {
+        let mutex = this.collectionMutexes.get(collectionName);
+        if (!mutex) {
+            mutex = new Mutex();
+            this.collectionMutexes.set(collectionName, mutex);
+        }
+        return mutex;
+    }
+
+    /**
      * Recursively get all code files in the codebase
      */
     private async getCodeFiles(codebasePath: string): Promise<string[]> {
         const files: string[] = [];
+        
+        // Validate base path security
+        const safeBasePath = SecurityUtils.validatePath(codebasePath, process.cwd(), {
+            maxDepth: 20, // Reasonable depth limit
+            allowSymlinks: false // Prevent symlink attacks
+        });
 
         const traverseDirectory = async (currentPath: string) => {
-            const entries = await fs.promises.readdir(currentPath, { withFileTypes: true });
+            try {
+                // Validate current path against base path
+                SecurityUtils.validatePath(currentPath, safeBasePath, {
+                    maxDepth: 20,
+                    allowSymlinks: false
+                });
 
-            for (const entry of entries) {
-                const fullPath = path.join(currentPath, entry.name);
+                const entries = await fs.promises.readdir(currentPath, { withFileTypes: true });
 
-                // Check if path matches ignore patterns
-                if (this.matchesIgnorePattern(fullPath, codebasePath)) {
-                    continue;
-                }
+                for (const entry of entries) {
+                    try {
+                        const fullPath = path.join(currentPath, entry.name);
+                        
+                        // Validate each file path for security
+                        const safePath = SecurityUtils.validatePath(fullPath, safeBasePath, {
+                            allowedExtensions: this.supportedExtensions,
+                            maxDepth: 20,
+                            allowSymlinks: false
+                        });
 
-                if (entry.isDirectory()) {
-                    await traverseDirectory(fullPath);
-                } else if (entry.isFile()) {
-                    const ext = path.extname(entry.name);
-                    if (this.supportedExtensions.includes(ext)) {
-                        files.push(fullPath);
+                        // Check if path matches ignore patterns
+                        if (this.matchesIgnorePattern(safePath, safeBasePath)) {
+                            continue;
+                        }
+
+                        if (entry.isDirectory()) {
+                            await traverseDirectory(safePath);
+                        } else if (entry.isFile()) {
+                            const ext = path.extname(entry.name);
+                            if (this.supportedExtensions.includes(ext)) {
+                                files.push(safePath);
+                            }
+                        }
+                    } catch (error) {
+                        if (error instanceof SecurityError) {
+                            console.warn(`⚠️  Security: Skipping ${entry.name}: ${error.message}`);
+                            continue;
+                        }
+                        throw error;
                     }
                 }
+            } catch (error) {
+                if (error instanceof SecurityError) {
+                    console.warn(`⚠️  Security: Skipping directory ${currentPath}: ${error.message}`);
+                    return;
+                }
+                throw error;
             }
         };
 
-        await traverseDirectory(codebasePath);
+        await traverseDirectory(safeBasePath);
         return files;
     }
 
@@ -714,7 +858,16 @@ export class Context {
             const filePath = filePaths[i];
 
             try {
-                const content = await fs.promises.readFile(filePath, 'utf-8');
+                // Secure file reading with size limit to prevent DoS attacks
+                const content = await SecurityUtils.readFileSecurely(
+                    filePath, 
+                    path.dirname(filePath), 
+                    { 
+                        encoding: 'utf-8',
+                        maxSize: 50 * 1024 * 1024, // 50MB limit per file
+                        allowedExtensions: this.supportedExtensions
+                    }
+                ) as string;
                 const language = this.getLanguageFromExtension(path.extname(filePath));
                 const chunks = await this.codeSplitter.split(content, language, filePath);
 
@@ -830,6 +983,7 @@ export class Context {
                     id: this.generateId(relativePath, chunk.metadata.startLine || 0, chunk.metadata.endLine || 0, chunk.content),
                     content: chunk.content, // Full text content for BM25 and storage
                     vector: embeddings[index].vector, // Dense vector
+                    source: chunk.metadata.filePath, // Full file path
                     relativePath,
                     startLine: chunk.metadata.startLine || 0,
                     endLine: chunk.metadata.endLine || 0,
@@ -844,7 +998,7 @@ export class Context {
             });
 
             // Store to vector database
-            await this.vectorDatabase.insertHybrid(this.getCollectionName(codebasePath), documents);
+            await (this.vectorDatabase as any).insertHybrid(this.getCollectionName(codebasePath), documents);
         } else {
             // Create regular vector documents
             const documents: VectorDocument[] = chunks.map((chunk, index) => {
@@ -860,6 +1014,7 @@ export class Context {
                     id: this.generateId(relativePath, chunk.metadata.startLine || 0, chunk.metadata.endLine || 0, chunk.content),
                     vector: embeddings[index].vector,
                     content: chunk.content,
+                    source: chunk.metadata.filePath, // Full file path
                     relativePath,
                     startLine: chunk.metadata.startLine || 0,
                     endLine: chunk.metadata.endLine || 0,
@@ -929,7 +1084,16 @@ export class Context {
      */
     static async getIgnorePatternsFromFile(filePath: string): Promise<string[]> {
         try {
-            const content = await fs.promises.readFile(filePath, 'utf-8');
+            // Secure reading of ignore files with validation
+            const content = await SecurityUtils.readFileSecurely(
+                filePath,
+                path.dirname(filePath),
+                {
+                    encoding: 'utf-8',
+                    maxSize: 1024 * 1024, // 1MB limit for ignore files
+                    allowedExtensions: ['.gitignore', '.contextignore', '.ignore', ''] // Allow files without extension
+                }
+            ) as string;
             return content
                 .split('\n')
                 .map(line => line.trim())
@@ -1236,6 +1400,45 @@ export class Context {
                 strategy: 'langchain',
                 reason: 'Using LangChain splitter directly'
             };
+        }
+    }
+
+    /**
+     * Dispose of all resources and clean up memory
+     * IMPORTANT: Call this when done using the Context to prevent memory leaks
+     */
+    dispose(): void {
+        try {
+            console.log('🧹 Disposing Context resources...');
+            
+            // Dispose code splitter if it has a dispose method (for AST splitter)
+            if (this.codeSplitter && typeof this.codeSplitter.dispose === 'function') {
+                (this.codeSplitter as any).dispose();
+            }
+            
+            // Clean up synchronizers
+            for (const synchronizer of this.synchronizers.values()) {
+                if (synchronizer && typeof (synchronizer as any).dispose === 'function') {
+                    (synchronizer as any).dispose();
+                }
+            }
+            this.synchronizers.clear();
+            
+            // Clean up collection mutexes
+            this.collectionMutexes.clear();
+            
+            // Dispose vector database if it has cleanup methods
+            if (this.vectorDatabase && typeof this.vectorDatabase.disconnect === 'function') {
+                try {
+                    this.vectorDatabase.disconnect();
+                } catch (error) {
+                    console.warn(`⚠️  Warning: Failed to disconnect vector database: ${error}`);
+                }
+            }
+            
+            console.log('✅ Context resources disposed');
+        } catch (error) {
+            console.warn(`⚠️  Warning: Failed to dispose Context resources: ${error}`);
         }
     }
 }

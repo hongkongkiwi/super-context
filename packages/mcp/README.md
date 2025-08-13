@@ -1,18 +1,20 @@
-# @zilliz/claude-context-mcp
-![](../../assets/claude-context.png)
-Model Context Protocol (MCP) integration for Claude Context - A powerful MCP server that enables AI assistants and agents to index and search codebases using semantic search.
+# @hongkongkiwi/super-context-mcp
+![](../../assets/super-context.png)
+Model Context Protocol (MCP) integration for Super Context - A powerful MCP server that enables AI assistants and agents to index and search codebases using semantic search.
 
-[![npm version](https://img.shields.io/npm/v/@zilliz/claude-context-mcp.svg)](https://www.npmjs.com/package/@zilliz/claude-context-mcp)
-[![npm downloads](https://img.shields.io/npm/dm/@zilliz/claude-context-mcp.svg)](https://www.npmjs.com/package/@zilliz/claude-context-mcp)
+> **Attribution**: This package is part of Super Context, a fork of [Claude Context](https://github.com/zilliztech/claude-context) originally created by Zilliz.
 
-> 📖 **New to Claude Context?** Check out the [main project README](../../README.md) for an overview and setup instructions.
+[![npm version](https://img.shields.io/npm/v/@hongkongkiwi/super-context-mcp.svg)](https://www.npmjs.com/package/@hongkongkiwi/super-context-mcp)
+[![npm downloads](https://img.shields.io/npm/dm/@hongkongkiwi/super-context-mcp.svg)](https://www.npmjs.com/package/@hongkongkiwi/super-context-mcp)
+
+> 📖 **New to Super Context?** Check out the [main project README](../../README.md) for an overview and setup instructions.
 
 
-## 🚀 Use Claude Context as MCP in Claude Code and others
+## 🚀 Use Super Context as MCP in Claude Code and others
 
 ![img](https://lh7-rt.googleusercontent.com/docsz/AD_4nXf2uIf2c5zowp-iOMOqsefHbY_EwNGiutkxtNXcZVJ8RI6SN9DsCcsc3amXIhOZx9VcKFJQLSAqM-2pjU9zoGs1r8GCTUL3JIsLpLUGAm1VQd5F2o5vpEajx2qrc77iXhBu1zWj?key=qYdFquJrLcfXCUndY-YRBQ)
 
-Model Context Protocol (MCP) allows you to integrate Claude Context with your favorite AI coding assistants, e.g. Claude Code.
+Model Context Protocol (MCP) allows you to integrate Super Context with your favorite AI coding assistants, e.g. Claude Code.
 
 
 ## Quick Start
@@ -20,8 +22,8 @@ Model Context Protocol (MCP) allows you to integrate Claude Context with your fa
 ### Prerequisites
 
 Before using the MCP server, make sure you have:
-- API key for your chosen embedding provider (OpenAI, VoyageAI, Gemini, or Ollama setup)
-- Milvus vector database (local or cloud)
+- API key for your chosen embedding provider (OpenAI, VoyageAI, Gemini, HuggingFace, OpenRouter, Vertex AI, AWS Bedrock, or Ollama setup)
+- Vector database (Milvus, Qdrant, Pinecone, pgvector, Weaviate, Chroma, Faiss, or Upstash Vector)
 
 > 💡 **Setup Help:** See the [main project setup guide](../../README.md#-quick-start) for detailed installation instructions.
 
@@ -29,12 +31,12 @@ Before using the MCP server, make sure you have:
 
 #### Embedding Provider Configuration
 
-Claude Context MCP supports multiple embedding providers. Choose the one that best fits your needs:
+Super Context MCP supports multiple embedding providers. Choose the one that best fits your needs:
 
 > 💡 **Tip**: You can also use [global environment variables](../../docs/getting-started/environment-variables.md) for easier configuration management across different MCP clients.
 
 ```bash
-# Supported providers: OpenAI, VoyageAI, Gemini, Ollama
+# Supported providers: OpenAI, VoyageAI, Gemini, Ollama, HuggingFace, OpenRouter, VertexAI, Bedrock
 EMBEDDING_PROVIDER=OpenAI
 ```
 
@@ -148,17 +150,284 @@ OLLAMA_HOST=http://127.0.0.1:11434
 
 </details>
 
-#### Get a free vector database on Zilliz Cloud
+<details>
+<summary><strong>5. HuggingFace Configuration</strong></summary>
 
-Claude Context needs a vector database. You can [sign up](https://cloud.zilliz.com/signup?utm_source=github&utm_medium=referral&utm_campaign=2507-codecontext-readme) on Zilliz Cloud to get an API key.
+HuggingFace provides access to open-source embedding models with good cost-effectiveness.
+
+```bash
+# Required: Your HuggingFace API token
+HUGGINGFACE_API_KEY=hf_your-huggingface-token
+
+# Optional: Specify embedding model (default: sentence-transformers/all-MiniLM-L6-v2)
+EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+
+# Optional: Custom API base URL (for private endpoints)
+HUGGINGFACE_BASE_URL=https://api-inference.huggingface.co
+```
+
+**Popular Models:**
+- `sentence-transformers/all-MiniLM-L6-v2` (384 dimensions, fast and lightweight)
+- `sentence-transformers/all-mpnet-base-v2` (768 dimensions, higher quality)
+- `intfloat/multilingual-e5-large` (1024 dimensions, multilingual support)
+
+**Getting API Token:**
+1. Visit [HuggingFace](https://huggingface.co/settings/tokens)
+2. Sign up and navigate to Access Tokens
+3. Create a new token with read permissions
+
+</details>
+
+<details>
+<summary><strong>6. OpenRouter Configuration</strong></summary>
+
+OpenRouter provides access to multiple embedding models through a unified API.
+
+```bash
+# Required: Your OpenRouter API key
+OPENROUTER_API_KEY=sk-or-your-openrouter-key
+
+# Optional: Specify embedding model (default: openai/text-embedding-3-small)
+EMBEDDING_MODEL=openai/text-embedding-3-small
+
+# Optional: Custom API base URL
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+```
+
+**Available Models:**
+- `openai/text-embedding-3-small` (1536 dimensions)
+- `openai/text-embedding-3-large` (3072 dimensions)
+- `text-embedding-ada-002` (1536 dimensions)
+
+**Getting API Key:**
+1. Visit [OpenRouter](https://openrouter.ai/keys)
+2. Sign up for an account
+3. Generate a new API key
+4. Add credits to your account
+
+</details>
+
+<details>
+<summary><strong>7. Google Vertex AI Configuration</strong></summary>
+
+Google Vertex AI provides enterprise-grade embedding models with Google Cloud integration.
+
+```bash
+# Required: Your Google Cloud project ID
+VERTEXAI_PROJECT_ID=your-gcp-project-id
+
+# Required: Vertex AI location/region
+VERTEXAI_LOCATION=us-central1
+
+# Optional: Specify embedding model (default: textembedding-gecko@003)
+EMBEDDING_MODEL=textembedding-gecko@003
+
+# Optional: Path to service account key file (uses default credentials if not provided)
+VERTEXAI_KEY_FILENAME=/path/to/service-account-key.json
+```
+
+**Available Models:**
+- `textembedding-gecko@003` (768 dimensions, latest version)
+- `textembedding-gecko@002` (768 dimensions)
+- `textembedding-gecko-multilingual@001` (768 dimensions, multilingual)
+
+**Setup Instructions:**
+1. Create a Google Cloud project and enable Vertex AI API
+2. Set up authentication (Application Default Credentials or service account key)
+3. Ensure you have appropriate IAM permissions
+
+</details>
+
+<details>
+<summary><strong>8. AWS Bedrock Configuration</strong></summary>
+
+AWS Bedrock provides access to foundation models from Amazon, Anthropic, Cohere, and other providers.
+
+```bash
+# Required: AWS region
+BEDROCK_REGION=us-east-1
+
+# Optional: Specify embedding model (default: amazon.titan-embed-text-v2:0)
+EMBEDDING_MODEL=amazon.titan-embed-text-v2:0
+
+# Authentication (choose one option):
+
+# Option 1: Use standard AWS environment variables (recommended)
+AWS_ACCESS_KEY_ID=your-access-key-id
+AWS_SECRET_ACCESS_KEY=your-secret-access-key
+AWS_SESSION_TOKEN=your-session-token  # Optional
+AWS_PROFILE=default
+
+# Option 2: Use Bedrock-specific variables
+BEDROCK_ACCESS_KEY_ID=your-access-key-id
+BEDROCK_SECRET_ACCESS_KEY=your-secret-access-key
+BEDROCK_SESSION_TOKEN=your-session-token  # Optional
+BEDROCK_PROFILE=default
+```
+
+**Available Models:**
+- `amazon.titan-embed-text-v2:0` (1024 dimensions, latest Titan model)
+- `amazon.titan-embed-text-v1` (1536 dimensions, legacy Titan model)
+- `cohere.embed-english-v3` (1024 dimensions, English optimized)
+- `cohere.embed-multilingual-v3` (1024 dimensions, multilingual)
+
+**Setup Instructions:**
+1. Ensure you have access to Amazon Bedrock in your AWS account
+2. Request access to the embedding models you want to use
+3. Configure AWS credentials using any standard method (AWS CLI, environment variables, IAM roles, etc.)
+
+</details>
+
+#### Vector Database Configuration
+
+Super Context supports multiple vector databases. Choose the one that best fits your needs:
+
+```bash
+# Supported databases: milvus, qdrant, pinecone, pgvector, weaviate, chroma, faiss, upstash, ollama
+VECTOR_DATABASE=milvus
+```
+
+<details>
+<summary><strong>Milvus / Zilliz Cloud (Default)</strong></summary>
+
+Milvus provides high-performance vector search. Zilliz Cloud is a fully managed version.
+
+```bash
+VECTOR_DATABASE=milvus
+MILVUS_ADDRESS=your-zilliz-cloud-public-endpoint  # Or http://localhost:19530 for local
+MILVUS_TOKEN=your-zilliz-cloud-api-key  # Optional for local installations
+```
+
+**Getting Started:**
+You can [sign up](https://cloud.zilliz.com/signup?utm_source=github&utm_medium=referral&utm_campaign=2507-codecontext-readme) on Zilliz Cloud to get an API key.
 
 ![](../../assets/signup_and_get_apikey.png)
 
-Copy your Personal Key to replace `your-zilliz-cloud-api-key` in the configuration examples.
+</details>
+
+<details>
+<summary><strong>Qdrant</strong></summary>
+
+Qdrant is a vector similarity search engine with a convenient API.
 
 ```bash
-MILVUS_TOKEN=your-zilliz-cloud-api-key
-``` 
+VECTOR_DATABASE=qdrant
+
+# For Qdrant Cloud:
+QDRANT_URL=https://your-cluster.qdrant.io
+QDRANT_API_KEY=your-qdrant-api-key
+
+# For local Qdrant:
+QDRANT_HOST=localhost
+QDRANT_PORT=6333
+QDRANT_HTTPS=false
+```
+
+</details>
+
+<details>
+<summary><strong>Pinecone</strong></summary>
+
+Pinecone is a fully managed vector database service.
+
+```bash
+VECTOR_DATABASE=pinecone
+PINECONE_API_KEY=your-pinecone-api-key
+PINECONE_INDEX_NAME=your-index-name
+PINECONE_ENVIRONMENT=your-environment  # Optional for newer accounts
+```
+
+</details>
+
+<details>
+<summary><strong>pgvector (PostgreSQL)</strong></summary>
+
+pgvector adds vector similarity search to PostgreSQL.
+
+```bash
+VECTOR_DATABASE=pgvector
+PGVECTOR_HOST=localhost
+PGVECTOR_PORT=5432
+PGVECTOR_DATABASE=your_database
+PGVECTOR_USER=your_username
+PGVECTOR_PASSWORD=your_password
+PGVECTOR_SSL=false
+```
+
+</details>
+
+<details>
+<summary><strong>Weaviate</strong></summary>
+
+Weaviate is an open-source vector search engine with ML-first approach.
+
+```bash
+VECTOR_DATABASE=weaviate
+WEAVIATE_SCHEME=http  # or https
+WEAVIATE_HOST=localhost:8080
+WEAVIATE_API_KEY=your-weaviate-api-key  # Optional
+WEAVIATE_CLASS_NAME=CodeChunks
+```
+
+</details>
+
+<details>
+<summary><strong>Chroma</strong></summary>
+
+Chroma is an open-source AI-native embedding database.
+
+```bash
+VECTOR_DATABASE=chroma
+CHROMA_HOST=localhost
+CHROMA_PORT=8000
+CHROMA_SSL=false
+CHROMA_COLLECTION_NAME=code_collection
+```
+
+</details>
+
+<details>
+<summary><strong>Faiss (Local)</strong></summary>
+
+Faiss is a library for efficient similarity search without external dependencies.
+
+```bash
+VECTOR_DATABASE=faiss
+FAISS_DATA_PATH=./faiss_data
+FAISS_INDEX_TYPE=IndexHNSWFlat
+FAISS_DIMENSION=1536  # Must match your embedding model dimension
+```
+
+</details>
+
+<details>
+<summary><strong>Upstash Vector</strong></summary>
+
+Upstash Vector is a serverless vector database with pay-per-use pricing.
+
+```bash
+VECTOR_DATABASE=upstash
+UPSTASH_VECTOR_URL=https://your-vector-db-url.upstash.io
+UPSTASH_VECTOR_TOKEN=your-upstash-token
+```
+
+</details>
+
+<details>
+<summary><strong>Ollama (Local)</strong></summary>
+
+Ollama provides fully local vector storage with optional embedding generation.
+
+```bash
+VECTOR_DATABASE=ollama
+OLLAMA_VDB_HOST=http://localhost:11434
+OLLAMA_VDB_MODEL=nomic-embed-text  # Optional
+OLLAMA_VDB_DATA_PATH=./ollama_vector_data
+OLLAMA_VDB_DIMENSION=768  # Must match your embedding model dimension
+OLLAMA_VDB_METRIC=cosine  # cosine, euclidean, or dot
+```
+
+</details> 
 
 
 #### Embedding Batch Size
@@ -191,9 +460,9 @@ Create or edit the `~/.qwen/settings.json` file and add the following configurat
 ```json
 {
   "mcpServers": {
-    "claude-context": {
+    "super-context": {
       "command": "npx",
-      "args": ["@zilliz/claude-context-mcp@latest"],
+      "args": ["@hongkongkiwi/super-context-mcp@latest"],
       "env": {
         "OPENAI_API_KEY": "your-openai-api-key",
         "MILVUS_TOKEN": "your-zilliz-cloud-api-key"
@@ -216,9 +485,9 @@ Pasting the following configuration into your Cursor `~/.cursor/mcp.json` file i
 ```json
 {
   "mcpServers": {
-    "claude-context": {
+    "super-context": {
       "command": "npx",
-      "args": ["-y", "@zilliz/claude-context-mcp@latest"],
+      "args": ["-y", "@hongkongkiwi/super-context-mcp@latest"],
       "env": {
         "EMBEDDING_PROVIDER": "OpenAI",
         "OPENAI_API_KEY": "your-openai-api-key",
@@ -233,9 +502,9 @@ Pasting the following configuration into your Cursor `~/.cursor/mcp.json` file i
 ```json
 {
   "mcpServers": {
-    "claude-context": {
+    "super-context": {
       "command": "npx",
-      "args": ["-y", "@zilliz/claude-context-mcp@latest"],
+      "args": ["-y", "@hongkongkiwi/super-context-mcp@latest"],
       "env": {
         "EMBEDDING_PROVIDER": "VoyageAI",
         "VOYAGEAI_API_KEY": "your-voyageai-api-key",
@@ -251,9 +520,9 @@ Pasting the following configuration into your Cursor `~/.cursor/mcp.json` file i
 ```json
 {
   "mcpServers": {
-    "claude-context": {
+    "super-context": {
       "command": "npx",
-      "args": ["-y", "@zilliz/claude-context-mcp@latest"],
+      "args": ["-y", "@hongkongkiwi/super-context-mcp@latest"],
       "env": {
         "EMBEDDING_PROVIDER": "Gemini",
         "GEMINI_API_KEY": "your-gemini-api-key",
@@ -268,9 +537,9 @@ Pasting the following configuration into your Cursor `~/.cursor/mcp.json` file i
 ```json
 {
   "mcpServers": {
-    "claude-context": {
+    "super-context": {
       "command": "npx",
-      "args": ["-y", "@zilliz/claude-context-mcp@latest"],
+      "args": ["-y", "@hongkongkiwi/super-context-mcp@latest"],
       "env": {
         "EMBEDDING_PROVIDER": "Ollama",
         "EMBEDDING_MODEL": "nomic-embed-text",
@@ -298,7 +567,7 @@ Add the following configuration to your Void MCP settings:
   "mcpServers": {
     "code-context": {
       "command": "npx",
-      "args": ["-y", "@zilliz/claude-context-mcp@latest"],
+      "args": ["-y", "@hongkongkiwi/super-context-mcp@latest"],
       "env": {
         "OPENAI_API_KEY": "your-openai-api-key",
         "MILVUS_ADDRESS": "your-zilliz-cloud-public-endpoint",
@@ -319,9 +588,9 @@ Add to your Claude Desktop configuration:
 ```json
 {
   "mcpServers": {
-    "claude-context": {
+    "super-context": {
       "command": "npx",
-      "args": ["@zilliz/claude-context-mcp@latest"],
+      "args": ["@hongkongkiwi/super-context-mcp@latest"],
       "env": {
         "OPENAI_API_KEY": "your-openai-api-key",
         "MILVUS_TOKEN": "your-zilliz-cloud-api-key"
@@ -336,11 +605,11 @@ Add to your Claude Desktop configuration:
 <details>
 <summary><strong>Claude Code</strong></summary>
 
-Use the command line interface to add the Claude Context MCP server:
+Use the command line interface to add the Super Context MCP server:
 
 ```bash
-# Add the Claude Context MCP server
-claude mcp add claude-context -e OPENAI_API_KEY=your-openai-api-key -e MILVUS_TOKEN=your-zilliz-cloud-api-key -- npx @zilliz/claude-context-mcp@latest
+# Add the Super Context MCP server
+claude mcp add super-context -e OPENAI_API_KEY=your-openai-api-key -e MILVUS_TOKEN=your-zilliz-cloud-api-key -- npx @hongkongkiwi/super-context-mcp@latest
 
 ```
 
@@ -356,9 +625,9 @@ Windsurf supports MCP configuration through a JSON file. Add the following confi
 ```json
 {
   "mcpServers": {
-    "claude-context": {
+    "super-context": {
       "command": "npx",
-      "args": ["-y", "@zilliz/claude-context-mcp@latest"],
+      "args": ["-y", "@hongkongkiwi/super-context-mcp@latest"],
       "env": {
         "OPENAI_API_KEY": "your-openai-api-key",
         "MILVUS_TOKEN": "your-zilliz-cloud-api-key"
@@ -373,14 +642,14 @@ Windsurf supports MCP configuration through a JSON file. Add the following confi
 <details>
 <summary><strong>VS Code</strong></summary>
 
-The Claude Context MCP server can be used with VS Code through MCP-compatible extensions. Add the following configuration to your VS Code MCP settings:
+The Super Context MCP server can be used with VS Code through MCP-compatible extensions. Add the following configuration to your VS Code MCP settings:
 
 ```json
 {
   "mcpServers": {
-    "claude-context": {
+    "super-context": {
       "command": "npx",
-      "args": ["-y", "@zilliz/claude-context-mcp@latest"],
+      "args": ["-y", "@hongkongkiwi/super-context-mcp@latest"],
       "env": {
         "OPENAI_API_KEY": "your-openai-api-key",
         "MILVUS_TOKEN": "your-zilliz-cloud-api-key"
@@ -399,10 +668,10 @@ Cherry Studio allows for visual MCP server configuration through its settings in
 
 1. Navigate to **Settings → MCP Servers → Add Server**.
 2. Fill in the server details:
-   - **Name**: `claude-context`
+   - **Name**: `super-context`
    - **Type**: `STDIO`
    - **Command**: `npx`
-   - **Arguments**: `["@zilliz/claude-context-mcp@latest"]`
+   - **Arguments**: `["@hongkongkiwi/super-context-mcp@latest"]`
    - **Environment Variables**:
      - `OPENAI_API_KEY`: `your-openai-api-key`
      - `MILVUS_TOKEN`: `your-zilliz-cloud-api-key`
@@ -424,9 +693,9 @@ Cline uses a JSON configuration file to manage MCP servers. To integrate the pro
 ```json
 {
   "mcpServers": {
-    "claude-context": {
+    "super-context": {
       "command": "npx",
-      "args": ["@zilliz/claude-context-mcp@latest"],
+      "args": ["@hongkongkiwi/super-context-mcp@latest"],
       "env": {
         "OPENAI_API_KEY": "your-openai-api-key",
         "MILVUS_TOKEN": "your-zilliz-cloud-api-key"
@@ -443,7 +712,7 @@ Cline uses a JSON configuration file to manage MCP servers. To integrate the pro
 <details>
 <summary><strong>Augment</strong></summary>
 
-To configure Claude Context MCP in Augment Code, you can use either the graphical interface or manual configuration.
+To configure Super Context MCP in Augment Code, you can use either the graphical interface or manual configuration.
 
 #### **A. Using the Augment Code UI**
 
@@ -458,10 +727,10 @@ To configure Claude Context MCP in Augment Code, you can use either the graphica
 5. Enter the following command:
 
    ```
-   npx @zilliz/claude-context-mcp@latest
+   npx @hongkongkiwi/super-context-mcp@latest
    ```
 
-6. Name the MCP: **Claude Context**.
+6. Name the MCP: **Super Context**.
 
 7. Click the **Add** button.
 
@@ -478,9 +747,9 @@ To configure Claude Context MCP in Augment Code, you can use either the graphica
 "augment.advanced": { 
   "mcpServers": [ 
     { 
-      "name": "claude-context", 
+      "name": "super-context", 
       "command": "npx", 
-      "args": ["-y", "@zilliz/claude-context-mcp@latest"] 
+      "args": ["-y", "@hongkongkiwi/super-context-mcp@latest"] 
     } 
   ] 
 }
@@ -500,9 +769,9 @@ Gemini CLI requires manual configuration through a JSON file:
 ```json
 {
   "mcpServers": {
-    "claude-context": {
+    "super-context": {
       "command": "npx",
-      "args": ["@zilliz/claude-context-mcp@latest"],
+      "args": ["@hongkongkiwi/super-context-mcp@latest"],
       "env": {
         "OPENAI_API_KEY": "your-openai-api-key",
         "MILVUS_TOKEN": "your-zilliz-cloud-api-key"
@@ -528,9 +797,9 @@ Roo Code utilizes a JSON configuration file for MCP servers:
 ```json
 {
   "mcpServers": {
-    "claude-context": {
+    "super-context": {
       "command": "npx",
-      "args": ["@zilliz/claude-context-mcp@latest"],
+      "args": ["@hongkongkiwi/super-context-mcp@latest"],
       "env": {
         "OPENAI_API_KEY": "your-openai-api-key",
         "MILVUS_TOKEN": "your-zilliz-cloud-api-key"
@@ -550,7 +819,7 @@ Roo Code utilizes a JSON configuration file for MCP servers:
 The server uses stdio transport and follows the standard MCP protocol. It can be integrated with any MCP-compatible client by running:
 
 ```bash
-npx @zilliz/claude-context-mcp@latest
+npx @hongkongkiwi/super-context-mcp@latest
 ```
 
 </details>
@@ -594,13 +863,13 @@ Clear the search index for a specific codebase.
 
 ## Contributing
 
-This package is part of the Claude Context monorepo. Please see:
+This package is part of the Super Context monorepo. Please see:
 - [Main Contributing Guide](../../CONTRIBUTING.md) - General contribution guidelines  
 - [MCP Package Contributing](CONTRIBUTING.md) - Specific development guide for this package
 
 ## Related Projects
 
-- **[@zilliz/claude-context-core](../core)** - Core indexing engine used by this MCP server
+- **[@hongkongkiwi/super-context-core](../core)** - Core indexing engine used by this MCP server
 - **[VSCode Extension](../vscode-extension)** - Alternative VSCode integration
 - [Model Context Protocol](https://modelcontextprotocol.io/) - Official MCP documentation
 

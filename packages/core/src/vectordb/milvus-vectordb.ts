@@ -4,6 +4,7 @@ import {
     SearchOptions,
     VectorSearchResult,
     VectorDatabase,
+    MultiCollectionVectorDatabase,
     HybridSearchRequest,
     HybridSearchOptions,
     HybridSearchResult,
@@ -41,7 +42,7 @@ async function createCollectionWithLimitCheck(
     }
 }
 
-export class MilvusVectorDatabase implements VectorDatabase {
+export class MilvusVectorDatabase implements MultiCollectionVectorDatabase {
     protected config: MilvusConfig;
     private client: MilvusClient | null = null;
     protected initializationPromise: Promise<void>;
@@ -178,7 +179,7 @@ export class MilvusVectorDatabase implements VectorDatabase {
 
         const createCollectionParams = {
             collection_name: collectionName,
-            description: description || `Claude Context collection: ${collectionName}`,
+            description: description || `Super Context collection: ${collectionName}`,
             fields: schema,
         };
 
@@ -281,6 +282,7 @@ export class MilvusVectorDatabase implements VectorDatabase {
                 id: result.id,
                 vector: queryVector,
                 content: result.content,
+                source: result.source || result.relativePath || '',
                 relativePath: result.relativePath,
                 startLine: result.startLine,
                 endLine: result.endLine,
@@ -546,20 +548,22 @@ export class MilvusVectorDatabase implements VectorDatabase {
             console.log(`✅ Found ${searchResult.results.length} results from hybrid search`);
 
             // Transform results to HybridSearchResult format
-            return searchResult.results.map((result: any) => ({
-                document: {
-                    id: result.id,
-                    content: result.content,
-                    vector: [],
-                    sparse_vector: [],
-                    relativePath: result.relativePath,
-                    startLine: result.startLine,
-                    endLine: result.endLine,
-                    fileExtension: result.fileExtension,
-                    metadata: JSON.parse(result.metadata || '{}'),
-                },
-                score: result.score,
-            }));
+            return [{
+                results: searchResult.results.map((result: any) => ({
+                    document: {
+                        id: result.id,
+                        content: result.content,
+                        source: result.source || result.relativePath || '',
+                        vector: [],
+                        relativePath: result.relativePath,
+                        startLine: result.startLine,
+                        endLine: result.endLine,
+                        fileExtension: result.fileExtension,
+                        metadata: JSON.parse(result.metadata || '{}'),
+                    },
+                    score: result.score,
+                }))
+            }];
 
         } catch (error) {
             console.error(`❌ Failed to perform hybrid search on collection '${collectionName}':`, error);

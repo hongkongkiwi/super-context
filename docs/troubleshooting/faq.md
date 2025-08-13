@@ -1,8 +1,8 @@
 # Frequently Asked Questions (FAQ)
 
-## Q: What files does Claude Context decide to embed?
+## Q: What files does Super Context decide to embed?
 
-**A:** Claude Context embeds files based on the following rules:
+**A:** Super Context embeds files based on the following rules:
 
 **Files that are included:**
 - Files with supported extensions from multiple sources:
@@ -50,7 +50,7 @@ Supported extensions include common programming languages (.ts, .js, .py, .java,
 
 ## Q: Can I use a fully local deployment setup?
 
-**A:** Yes, you can deploy Claude Context entirely on your local infrastructure. While we recommend using the fully managed [Zilliz Cloud](https://cloud.zilliz.com/signup?utm_source=github&utm_medium=referral&utm_campaign=2507-codecontext-readme) service for ease of use, you can also set up your own private local deployment.
+**A:** Yes, you can deploy Super Context entirely on your local infrastructure. While we recommend using the fully managed [Zilliz Cloud](https://cloud.zilliz.com/signup?utm_source=github&utm_medium=referral&utm_campaign=2507-codecontext-readme) service for ease of use, you can also set up your own private local deployment.
 
 **For local deployment:**
 
@@ -67,9 +67,9 @@ This setup gives you complete control over your data while maintaining full func
 
 ## Q: Does it support multiple projects / codebases?
 
-**A:** Yes, Claude Context fully supports multiple projects and codebases. In MCP mode, it automatically leverages the MCP client's AI Agent to detect and obtain the current codebase path where you're working.
+**A:** Yes, Super Context fully supports multiple projects and codebases. In MCP mode, it automatically leverages the MCP client's AI Agent to detect and obtain the current codebase path where you're working.
 
-You can seamlessly use queries like `index this codebase` or `search the main function` without specifying explicit paths. When you switch between different codebase working directories, Claude Context automatically discovers the change and adapts accordingly - no need to manually input specific codebase paths.
+You can seamlessly use queries like `index this codebase` or `search the main function` without specifying explicit paths. When you switch between different codebase working directories, Super Context automatically discovers the change and adapts accordingly - no need to manually input specific codebase paths.
 
 **Key features for multi-project support:**
 - **Automatic Path Detection**: Leverages MCP client's workspace awareness to identify current working directory

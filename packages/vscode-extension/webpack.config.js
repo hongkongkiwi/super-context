@@ -25,10 +25,10 @@ module.exports = {
         // support reading TypeScript and JavaScript files
         extensions: ['.ts', '.js'],
         alias: {
-            '@zilliz/claude-context-core': path.resolve(__dirname, '../core/dist/index.js'),
-            '@zilliz/claude-context-core/dist/splitter': path.resolve(__dirname, '../core/dist/splitter'),
-            '@zilliz/claude-context-core/dist/embedding': path.resolve(__dirname, '../core/dist/embedding'),
-            '@zilliz/claude-context-core/dist/vectordb': path.resolve(__dirname, '../core/dist/vectordb')
+            '@hongkongkiwi/super-context-core': path.resolve(__dirname, '../core/dist/index.js'),
+            '@hongkongkiwi/super-context-core/dist/splitter': path.resolve(__dirname, '../core/dist/splitter'),
+            '@hongkongkiwi/super-context-core/dist/embedding': path.resolve(__dirname, '../core/dist/embedding'),
+            '@hongkongkiwi/super-context-core/dist/vectordb': path.resolve(__dirname, '../core/dist/vectordb')
         }
     },
     module: {

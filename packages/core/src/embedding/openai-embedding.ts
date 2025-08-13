@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
-import { Embedding, EmbeddingVector } from './base-embedding';
+import { Embedding, EmbeddingVector, EmbeddingOptions } from './base-embedding';
 
-export interface OpenAIEmbeddingConfig {
+export interface OpenAIEmbeddingConfig extends EmbeddingOptions {
     model: string;
     apiKey: string;
     baseURL?: string; // OpenAI supports custom baseURL
@@ -14,7 +14,7 @@ export class OpenAIEmbedding extends Embedding {
     protected maxTokens: number = 8192; // Maximum tokens for OpenAI embedding models
 
     constructor(config: OpenAIEmbeddingConfig) {
-        super();
+        super(config);
         this.config = config;
         this.client = new OpenAI({
             apiKey: config.apiKey,
@@ -53,7 +53,7 @@ export class OpenAIEmbedding extends Embedding {
         }
     }
 
-    async embed(text: string): Promise<EmbeddingVector> {
+    protected async embedInternal(text: string): Promise<EmbeddingVector> {
         const processedText = this.preprocessText(text);
         const model = this.config.model || 'text-embedding-3-small';
 
@@ -84,7 +84,7 @@ export class OpenAIEmbedding extends Embedding {
         }
     }
 
-    async embedBatch(texts: string[]): Promise<EmbeddingVector[]> {
+    protected async embedBatchInternal(texts: string[]): Promise<EmbeddingVector[]> {
         const processedTexts = this.preprocessTexts(texts);
         const model = this.config.model || 'text-embedding-3-small';
 

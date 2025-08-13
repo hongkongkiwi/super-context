@@ -2,7 +2,7 @@
 
 ## 🎯 Global Configuration
 
-Claude Context supports a global configuration file at `~/.context/.env` to simplify MCP setup across different MCP clients.
+Super Context supports a global configuration file at `~/.context/.env` to simplify MCP setup across different MCP clients.
 
 **Benefits:**
 - Configure once, use everywhere
@@ -28,7 +28,7 @@ Claude Context supports a global configuration file at `~/.context/.env` to simp
 ### Vector Database
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `MILVUS_TOKEN` | Milvus authentication token. Get [Zilliz Personal API Key](https://github.com/zilliztech/claude-context/blob/master/assets/signup_and_get_apikey.png) | Recommended |
+| `MILVUS_TOKEN` | Milvus authentication token. Get [Zilliz Personal API Key](https://github.com/hongkongkiwi/super-context/blob/master/assets/signup_and_get_apikey.png) | Recommended |
 | `MILVUS_ADDRESS` | Milvus server address. Optional when using Zilliz Personal API Key | Auto-resolved from token |
 
 ### Ollama (Local)
@@ -62,16 +62,16 @@ EOF
 
 **Claude Code:**
 ```bash
-claude mcp add claude-context -- npx @zilliz/claude-context-mcp@latest
+claude mcp add super-context -- npx @hongkongkiwi/super-context-mcp@latest
 ```
 
 **Cursor/Windsurf/Others:**
 ```json
 {
   "mcpServers": {
-    "claude-context": {
+    "super-context": {
       "command": "npx",
-      "args": ["-y", "@zilliz/claude-context-mcp@latest"]
+      "args": ["-y", "@hongkongkiwi/super-context-mcp@latest"]
     }
   }
 }
@@ -80,5 +80,5 @@ claude mcp add claude-context -- npx @zilliz/claude-context-mcp@latest
 ## 📚 Additional Information
 
 For detailed information about file processing rules and how custom patterns work, see:
-- [What files does Claude Context decide to embed?](../troubleshooting/faq.md#q-what-files-does-claude-context-decide-to-embed)
+- [What files does Super Context decide to embed?](../troubleshooting/faq.md#q-what-files-does-super-context-decide-to-embed)
  

@@ -1,22 +1,24 @@
-![](assets/claude-context.png)
-### Your entire codebase as Claude's context
+![](assets/super-context.png)
+### Your entire codebase as AI context
 
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-green.svg)](https://nodejs.org/)
 [![Documentation](https://img.shields.io/badge/Documentation-📚-orange.svg)](docs/)
-[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/zilliz.semanticcodesearch?label=VS%20Code%20Extension&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=zilliz.semanticcodesearch)
-[![npm - core](https://img.shields.io/npm/v/@zilliz/claude-context-core?label=%40zilliz%2Fclaude-context-core&logo=npm)](https://www.npmjs.com/package/@zilliz/claude-context-core)
-[![npm - mcp](https://img.shields.io/npm/v/@zilliz/claude-context-mcp?label=%40zilliz%2Fclaude-context-mcp&logo=npm)](https://www.npmjs.com/package/@zilliz/claude-context-mcp)
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/zilliz.@hongkongkiwi/super-context-vscode?label=VS%20Code%20Extension&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=zilliz.@hongkongkiwi/super-context-vscode)
+[![npm - core](https://img.shields.io/npm/v/@hongkongkiwi/super-context-core?label=%40zilliz%2Fsuper-context-core&logo=npm)](https://www.npmjs.com/package/@hongkongkiwi/super-context-core)
+[![npm - mcp](https://img.shields.io/npm/v/@hongkongkiwi/super-context-mcp?label=%40zilliz%2Fsuper-context-mcp&logo=npm)](https://www.npmjs.com/package/@hongkongkiwi/super-context-mcp)
 [![Twitter](https://img.shields.io/twitter/url/https/twitter.com/zilliz_universe.svg?style=social&label=Follow%20%40Zilliz)](https://twitter.com/zilliz_universe)
-[![DeepWiki](https://img.shields.io/badge/DeepWiki-AI%20Docs-purple.svg?logo=gitbook&logoColor=white)](https://deepwiki.com/zilliztech/claude-context)
+[![DeepWiki](https://img.shields.io/badge/DeepWiki-AI%20Docs-purple.svg?logo=gitbook&logoColor=white)](https://deepwiki.com/zilliztech/super-context)
 <a href="https://discord.gg/mKc3R95yE5"><img height="20" src="https://img.shields.io/badge/Discord-%235865F2.svg?style=for-the-badge&logo=discord&logoColor=white" alt="discord" /></a>
 </div>
 
-**Claude Context** is an MCP plugin that adds semantic code search to Claude Code and other AI coding agents, giving them deep context from your entire codebase.
+**Super Context** is an MCP plugin that adds semantic code search to Claude Code and other AI coding agents, giving them deep context from your entire codebase.
 
-🧠 **Your Entire Codebase as Context**: Claude Context uses semantic search to find all relevant code from millions of lines. No multi-round discovery needed. It brings results straight into the Claude's context.
+> **Attribution**: Super Context is a fork of [Claude Context](https://github.com/zilliztech/claude-context) originally created by Zilliz. This fork maintains compatibility with the original MIT License while adding enhancements and modifications.
 
-💰 **Cost-Effective for Large Codebases**: Instead of loading entire directories into Claude for every request, which can be very expensive, Claude Context efficiently stores your codebase in a vector database and only uses related code in context to keep your costs manageable.
+🧠 **Your Entire Codebase as Context**: Super Context uses semantic search to find all relevant code from millions of lines. No multi-round discovery needed. It brings results straight into the AI agent's context.
+
+💰 **Cost-Effective for Large Codebases**: Instead of loading entire directories into AI agents for every request, which can be very expensive, Super Context efficiently stores your codebase in a vector database and only uses related code in context to keep your costs manageable.
 
 ---
 
@@ -24,7 +26,7 @@
 
 ![img](https://lh7-rt.googleusercontent.com/docsz/AD_4nXf2uIf2c5zowp-iOMOqsefHbY_EwNGiutkxtNXcZVJ8RI6SN9DsCcsc3amXIhOZx9VcKFJQLSAqM-2pjU9zoGs1r8GCTUL3JIsLpLUGAm1VQd5F2o5vpEajx2qrc77iXhBu1zWj?key=qYdFquJrLcfXCUndY-YRBQ)
 
-Model Context Protocol (MCP) allows you to integrate Claude Context with your favorite AI coding assistants, e.g. Claude Code.
+Model Context Protocol (MCP) allows you to integrate Super Context with your favorite AI coding assistants, e.g. Claude Code.
 
 ## Quick Start
 ### Prerequisites
@@ -32,7 +34,7 @@ Model Context Protocol (MCP) allows you to integrate Claude Context with your fa
 <details>
 <summary>Get a free vector database on Zilliz Cloud 👈</summary>
 
-Claude Context needs a vector database. You can [sign up](https://cloud.zilliz.com/signup?utm_source=github&utm_medium=referral&utm_campaign=2507-codecontext-readme) on Zilliz Cloud to get an API key.
+Super Context needs a vector database. You can [sign up](https://cloud.zilliz.com/signup?utm_source=github&utm_medium=referral&utm_campaign=2507-codecontext-readme) on Zilliz Cloud to get an API key.
 
 ![](assets/signup_and_get_apikey.png)
 
@@ -53,15 +55,15 @@ Copy your key and use it in the configuration examples below as `your-openai-api
 
 **System Requirements:**
 - Node.js >= 20.0.0 and < 24.0.0
-> Claude Context is not compatible with Node.js 24.0.0, you need downgrade it first if your node version is greater or equal to 24.
+> Super Context is not compatible with Node.js 24.0.0, you need downgrade it first if your node version is greater or equal to 24.
 
 #### Configuration
 
-Use the command line interface to add the Claude Context MCP server:
+Use the command line interface to add the Super Context MCP server:
 
 ```bash
-# Add the Claude Context MCP server
-claude mcp add claude-context -e OPENAI_API_KEY=your-openai-api-key -e MILVUS_TOKEN=your-zilliz-cloud-api-key -- npx @zilliz/claude-context-mcp@latest
+# Add the Super Context MCP server
+claude mcp add super-context -e OPENAI_API_KEY=your-openai-api-key -e MILVUS_TOKEN=your-zilliz-cloud-api-key -- npx @hongkongkiwi/super-context-mcp@latest
 ```
 
 See the [Claude Code MCP documentation](https://docs.anthropic.com/en/docs/claude-code/mcp) for more details about MCP server management.
@@ -80,9 +82,9 @@ Gemini CLI requires manual configuration through a JSON file:
 ```json
 {
   "mcpServers": {
-    "claude-context": {
+    "super-context": {
       "command": "npx",
-      "args": ["@zilliz/claude-context-mcp@latest"],
+      "args": ["@hongkongkiwi/super-context-mcp@latest"],
       "env": {
         "OPENAI_API_KEY": "your-openai-api-key",
         "MILVUS_TOKEN": "your-zilliz-cloud-api-key"
@@ -103,9 +105,9 @@ Create or edit the `~/.qwen/settings.json` file and add the following configurat
 ```json
 {
   "mcpServers": {
-    "claude-context": {
+    "super-context": {
       "command": "npx",
-      "args": ["@zilliz/claude-context-mcp@latest"],
+      "args": ["@hongkongkiwi/super-context-mcp@latest"],
       "env": {
         "OPENAI_API_KEY": "your-openai-api-key",
         "MILVUS_ADDRESS": "your-zilliz-cloud-public-endpoint",
@@ -122,7 +124,7 @@ Create or edit the `~/.qwen/settings.json` file and add the following configurat
 <details>
 <summary><strong>Cursor</strong></summary>
 
-<a href="https://cursor.com/install-mcp?name=claude-context&config=JTdCJTIyY29tbWFuZCUyMiUzQSUyMm5weCUyMC15JTIwJTQwemlsbGl6JTJGY29kZS1jb250ZXh0LW1jcCU0MGxhdGVzdCUyMiUyQyUyMmVudiUyMiUzQSU3QiUyMk9QRU5BSV9BUElfS0VZJTIyJTNBJTIyeW91ci1vcGVuYWktYXBpLWtleSUyMiUyQyUyMk1JTFZVU19BRERSRVNTJTIyJTNBJTIybG9jYWxob3N0JTNBMTk1MzAlMjIlN0QlN0Q%3D"><img src="https://cursor.com/deeplink/mcp-install-dark.svg" alt="Add claude-context MCP server to Cursor" height="32" /></a>
+<a href="https://cursor.com/install-mcp?name=super-context&config=JTdCJTIyY29tbWFuZCUyMiUzQSUyMm5weCUyMC15JTIwJTQwemlsbGl6JTJGY29kZS1jb250ZXh0LW1jcCU0MGxhdGVzdCUyMiUyQyUyMmVudiUyMiUzQSU3QiUyMk9QRU5BSV9BUElfS0VZJTIyJTNBJTIyeW91ci1vcGVuYWktYXBpLWtleSUyMiUyQyUyMk1JTFZVU19BRERSRVNTJTIyJTNBJTIybG9jYWxob3N0JTNBMTk1MzAlMjIlN0QlN0Q%3D"><img src="https://cursor.com/deeplink/mcp-install-dark.svg" alt="Add super-context MCP server to Cursor" height="32" /></a>
 
 Go to: `Settings` -> `Cursor Settings` -> `MCP` -> `Add new global MCP server`
 
@@ -131,9 +133,9 @@ Pasting the following configuration into your Cursor `~/.cursor/mcp.json` file i
 ```json
 {
   "mcpServers": {
-    "claude-context": {
+    "super-context": {
       "command": "npx",
-      "args": ["-y", "@zilliz/claude-context-mcp@latest"],
+      "args": ["-y", "@hongkongkiwi/super-context-mcp@latest"],
       "env": {
         "OPENAI_API_KEY": "your-openai-api-key",
         "MILVUS_ADDRESS": "your-zilliz-cloud-public-endpoint",
@@ -158,7 +160,7 @@ Add the following configuration to your Void MCP settings:
   "mcpServers": {
     "code-context": {
       "command": "npx",
-      "args": ["-y", "@zilliz/claude-context-mcp@latest"],
+      "args": ["-y", "@hongkongkiwi/super-context-mcp@latest"],
       "env": {
         "OPENAI_API_KEY": "your-openai-api-key",
         "MILVUS_ADDRESS": "your-zilliz-cloud-public-endpoint",
@@ -179,9 +181,9 @@ Add to your Claude Desktop configuration:
 ```json
 {
   "mcpServers": {
-    "claude-context": {
+    "super-context": {
       "command": "npx",
-      "args": ["@zilliz/claude-context-mcp@latest"],
+      "args": ["@hongkongkiwi/super-context-mcp@latest"],
       "env": {
         "OPENAI_API_KEY": "your-openai-api-key",
         "MILVUS_ADDRESS": "your-zilliz-cloud-public-endpoint",
@@ -202,9 +204,9 @@ Windsurf supports MCP configuration through a JSON file. Add the following confi
 ```json
 {
   "mcpServers": {
-    "claude-context": {
+    "super-context": {
       "command": "npx",
-      "args": ["-y", "@zilliz/claude-context-mcp@latest"],
+      "args": ["-y", "@hongkongkiwi/super-context-mcp@latest"],
       "env": {
         "OPENAI_API_KEY": "your-openai-api-key",
         "MILVUS_ADDRESS": "your-zilliz-cloud-public-endpoint",
@@ -220,14 +222,14 @@ Windsurf supports MCP configuration through a JSON file. Add the following confi
 <details>
 <summary><strong>VS Code</strong></summary>
 
-The Claude Context MCP server can be used with VS Code through MCP-compatible extensions. Add the following configuration to your VS Code MCP settings:
+The Super Context MCP server can be used with VS Code through MCP-compatible extensions. Add the following configuration to your VS Code MCP settings:
 
 ```json
 {
   "mcpServers": {
-    "claude-context": {
+    "super-context": {
       "command": "npx",
-      "args": ["-y", "@zilliz/claude-context-mcp@latest"],
+      "args": ["-y", "@hongkongkiwi/super-context-mcp@latest"],
       "env": {
         "OPENAI_API_KEY": "your-openai-api-key",
         "MILVUS_ADDRESS": "your-zilliz-cloud-public-endpoint",
@@ -247,10 +249,10 @@ Cherry Studio allows for visual MCP server configuration through its settings in
 
 1. Navigate to **Settings → MCP Servers → Add Server**.
 2. Fill in the server details:
-   - **Name**: `claude-context`
+   - **Name**: `super-context`
    - **Type**: `STDIO`
    - **Command**: `npx`
-   - **Arguments**: `["@zilliz/claude-context-mcp@latest"]`
+   - **Arguments**: `["@hongkongkiwi/super-context-mcp@latest"]`
    - **Environment Variables**:
      - `OPENAI_API_KEY`: `your-openai-api-key`
      - `MILVUS_ADDRESS`: `your-zilliz-cloud-public-endpoint`
@@ -273,9 +275,9 @@ Cline uses a JSON configuration file to manage MCP servers. To integrate the pro
 ```json
 {
   "mcpServers": {
-    "claude-context": {
+    "super-context": {
       "command": "npx",
-      "args": ["@zilliz/claude-context-mcp@latest"],
+      "args": ["@hongkongkiwi/super-context-mcp@latest"],
       "env": {
         "OPENAI_API_KEY": "your-openai-api-key",
         "MILVUS_ADDRESS": "your-zilliz-cloud-public-endpoint",
@@ -293,7 +295,7 @@ Cline uses a JSON configuration file to manage MCP servers. To integrate the pro
 <details>
 <summary><strong>Augment</strong></summary>
 
-To configure Claude Context MCP in Augment Code, you can use either the graphical interface or manual configuration.
+To configure Super Context MCP in Augment Code, you can use either the graphical interface or manual configuration.
 
 #### **A. Using the Augment Code UI**
 
@@ -308,10 +310,10 @@ To configure Claude Context MCP in Augment Code, you can use either the graphica
 5. Enter the following command:
 
    ```
-   npx @zilliz/claude-context-mcp@latest
+   npx @hongkongkiwi/super-context-mcp@latest
    ```
 
-6. Name the MCP: **Claude Context**.
+6. Name the MCP: **Super Context**.
 
 7. Click the **Add** button.
 
@@ -328,9 +330,9 @@ To configure Claude Context MCP in Augment Code, you can use either the graphica
 "augment.advanced": { 
   "mcpServers": [ 
     { 
-      "name": "claude-context", 
+      "name": "super-context", 
       "command": "npx", 
-      "args": ["-y", "@zilliz/claude-context-mcp@latest"],
+      "args": ["-y", "@hongkongkiwi/super-context-mcp@latest"],
       "env": {
         "OPENAI_API_KEY": "your-openai-api-key",
         "MILVUS_ADDRESS": "your-zilliz-cloud-public-endpoint",
@@ -355,9 +357,9 @@ Roo Code utilizes a JSON configuration file for MCP servers:
 ```json
 {
   "mcpServers": {
-    "claude-context": {
+    "super-context": {
       "command": "npx",
-      "args": ["@zilliz/claude-context-mcp@latest"],
+      "args": ["@hongkongkiwi/super-context-mcp@latest"],
       "env": {
         "OPENAI_API_KEY": "your-openai-api-key",
         "MILVUS_ADDRESS": "your-zilliz-cloud-public-endpoint",
@@ -379,7 +381,7 @@ Roo Code utilizes a JSON configuration file for MCP servers:
 The server uses stdio transport and follows the standard MCP protocol. It can be integrated with any MCP-compatible client by running:
 
 ```bash
-npx @zilliz/claude-context-mcp@latest
+npx @hongkongkiwi/super-context-mcp@latest
 ```
 
 </details>
@@ -407,31 +409,31 @@ For more detailed MCP environment variable configuration, see our [Environment V
 - 🛠️ **Customizable**: Configure file extensions, ignore patterns, and embedding models.
 
 ### Core Components
-Claude Context is a monorepo containing three main packages:
+Super Context is a monorepo containing three main packages:
 
-- **`@zilliz/claude-context-core`**: Core indexing engine with embedding and vector database integration
+- **`@hongkongkiwi/super-context-core`**: Core indexing engine with embedding and vector database integration
 - **VSCode Extension**: Semantic Code Search extension for Visual Studio Code
-- **`@zilliz/claude-context-mcp`**: Model Context Protocol server for AI agent integration
+- **`@hongkongkiwi/super-context-mcp`**: Model Context Protocol server for AI agent integration
 
 ### Supported Technologies
-- **Embedding Providers**: [OpenAI](https://openai.com), [VoyageAI](https://voyageai.com), [Ollama](https://ollama.ai), [Gemini](https://gemini.google.com)
-- **Vector Databases**: [Milvus](https://milvus.io) or [Zilliz Cloud](https://zilliz.com/cloud)(fully managed vector database as a service)
+- **Embedding Providers**: [OpenAI](https://openai.com), [VoyageAI](https://voyageai.com), [Ollama](https://ollama.ai), [Gemini](https://gemini.google.com), [HuggingFace](https://huggingface.co), [OpenRouter](https://openrouter.ai), [Google Vertex AI](https://cloud.google.com/vertex-ai), [AWS Bedrock](https://aws.amazon.com/bedrock/)
+- **Vector Databases**: [Milvus](https://milvus.io), [Zilliz Cloud](https://zilliz.com/cloud), [Qdrant](https://qdrant.tech), [Pinecone](https://www.pinecone.io), [pgvector](https://github.com/pgvector/pgvector), [Weaviate](https://weaviate.io), [Chroma](https://www.trychroma.com), [Faiss](https://faiss.ai), [Upstash Vector](https://upstash.com/docs/vector/overall/getstarted), [Ollama](https://ollama.ai)
 - **Code Splitters**: AST-based splitter (with automatic fallback), LangChain character-based splitter
 - **Languages**: TypeScript, JavaScript, Python, Java, C++, C#, Go, Rust, PHP, Ruby, Swift, Kotlin, Scala, Markdown
 - **Development Tools**: VSCode, Model Context Protocol
 
 ---
 
-## 📦 Other Ways to Use Claude Context
+## 📦 Other Ways to Use Super Context
 
-While MCP is the recommended way to use Claude Context with AI assistants, you can also use it directly or through the VSCode extension.
+While MCP is the recommended way to use Super Context with AI assistants, you can also use it directly or through the VSCode extension.
 
 ### Build Applications with Core Package
 
-The `@zilliz/claude-context-core` package provides the fundamental functionality for code indexing and semantic search.
+The `@hongkongkiwi/super-context-core` package provides the fundamental functionality for code indexing and semantic search.
 
 ```typescript
-import { Context, MilvusVectorDatabase, OpenAIEmbedding } from '@zilliz/claude-context-core';
+import { Context, MilvusVectorDatabase, OpenAIEmbedding } from '@hongkongkiwi/super-context-core';
 
 // Initialize embedding provider
 const embedding = new OpenAIEmbedding({
@@ -468,9 +470,9 @@ results.forEach(result => {
 
 ### VSCode Extension
 
-Integrates Claude Context directly into your IDE. Provides an intuitive interface for semantic code search and navigation.
+Integrates Super Context directly into your IDE. Provides an intuitive interface for semantic code search and navigation.
 
-1. **Direct Link**: [Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=zilliz.semanticcodesearch)
+1. **Direct Link**: [Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=zilliz.@hongkongkiwi/super-context-vscode)
 2. **Manual Search**:
     - Open Extensions view in VSCode (Ctrl+Shift+X or Cmd+Shift+X on Mac)
     - Search for "Semantic Code Search"
@@ -485,8 +487,8 @@ Integrates Claude Context directly into your IDE. Provides an intuitive interfac
 
 ```bash
 # Clone repository
-git clone https://github.com/zilliztech/claude-context.git
-cd claude-context
+git clone https://github.com/hongkongkiwi/super-context.git
+cd super-context
 
 # Install dependencies
 pnpm install
@@ -520,7 +522,7 @@ pnpm dev
 
 ### Supported File Extensions
 
-By default, Claude Context supports:
+By default, Super Context supports:
 - Programming languages: `.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.java`, `.cpp`, `.c`, `.h`, `.hpp`, `.cs`, `.go`, `.rs`, `.php`, `.rb`, `.swift`, `.kt`, `.scala`, `.m`, `.mm`
 - Documentation: `.md`, `.markdown`, `.ipynb`
 
@@ -551,7 +553,7 @@ Check the `/examples` directory for complete usage examples:
 
 **Common Questions:**
 
-- **[What files does Claude Context decide to embed?](docs/troubleshooting/faq.md#q-what-files-does-claude-context-decide-to-embed)**
+- **[What files does Super Context decide to embed?](docs/troubleshooting/faq.md#q-what-files-does-super-context-decide-to-embed)**
 - **[Can I use a fully local deployment setup?](docs/troubleshooting/faq.md#q-can-i-use-a-fully-local-deployment-setup)**
 - **[Does it support multiple projects / codebases?](docs/troubleshooting/faq.md#q-does-it-support-multiple-projects--codebases)**
 
@@ -589,7 +591,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🔗 Links
 
-- [GitHub Repository](https://github.com/zilliztech/claude-context)
-- [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=zilliz.semanticcodesearch)
+- [GitHub Repository](https://github.com/hongkongkiwi/super-context)
+- [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=zilliz.@hongkongkiwi/super-context-vscode)
 - [Milvus Documentation](https://milvus.io/docs)
 - [Zilliz Cloud](https://zilliz.com/cloud)

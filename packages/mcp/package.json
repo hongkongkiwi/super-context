@@ -1,7 +1,7 @@
 {
-    "name": "@zilliz/claude-context-mcp",
+    "name": "@hongkongkiwi/super-context-mcp",
     "version": "0.1.1",
-    "description": "Model Context Protocol integration for Claude Context",
+    "description": "Model Context Protocol integration for Super Context",
     "type": "module",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
@@ -18,7 +18,7 @@
         "prepublishOnly": "pnpm build"
     },
     "dependencies": {
-        "@zilliz/claude-context-core": "workspace:*",
+        "@hongkongkiwi/super-context-core": "workspace:*",
         "@modelcontextprotocol/sdk": "^1.12.1",
         "zod": "^3.25.55"
     },
@@ -33,10 +33,15 @@
     ],
     "repository": {
         "type": "git",
-        "url": "https://github.com/zilliztech/claude-context.git",
+        "url": "https://github.com/hongkongkiwi/super-context.git",
         "directory": "packages/mcp"
     },
     "license": "MIT",
+    "author": "hongkongkiwi",
+    "contributors": [
+        "Zilliz (Original author)"
+    ],
+    "forkedFrom": "https://github.com/zilliztech/claude-context",
     "publishConfig": {
         "access": "public"
     }

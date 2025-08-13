@@ -4,3 +4,16 @@ packages:
 
 ignoredBuiltDependencies:
   - faiss-node
+  - '@pinecone-database/pinecone'
+  - weaviate-ts-client
+  - chromadb
+  - pg
+
+linkWorkspacePackages: true
+
+onlyBuiltDependencies:
+  - tree-sitter-cli
+
+recursiveInstall: false
+
+sharedWorkspaceLockfile: true

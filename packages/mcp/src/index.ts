@@ -21,8 +21,8 @@ import {
     ListToolsRequestSchema,
     CallToolRequestSchema
 } from "@modelcontextprotocol/sdk/types.js";
-import { Context } from "@zilliz/claude-context-core";
-import { MilvusVectorDatabase } from "@zilliz/claude-context-core";
+import { Context } from "@hongkongkiwi/super-context-core";
+import { MilvusVectorDatabase, QdrantVectorDatabase } from "@hongkongkiwi/super-context-core";
 
 // Import our modular components
 import { createMcpConfig, logConfigurationSummary, showHelpMessage, ContextMcpConfig } from "./config.js";
@@ -60,12 +60,25 @@ class ContextMcpServer {
         logEmbeddingProviderInfo(config, embedding);
 
         // Initialize vector database
-        const vectorDatabase = new MilvusVectorDatabase({
-            address: config.milvusAddress,
-            ...(config.milvusToken && { token: config.milvusToken })
-        });
+        let vectorDatabase;
+        if (config.vectorDatabase === 'qdrant') {
+            console.log(`[VECTOR_DB] Initializing Qdrant vector database`);
+            vectorDatabase = new QdrantVectorDatabase({
+                url: config.qdrantUrl,
+                apiKey: config.qdrantApiKey,
+                host: config.qdrantHost,
+                port: config.qdrantPort,
+                https: config.qdrantHttps
+            });
+        } else {
+            console.log(`[VECTOR_DB] Initializing Milvus vector database`);
+            vectorDatabase = new MilvusVectorDatabase({
+                address: config.milvusAddress,
+                ...(config.milvusToken && { token: config.milvusToken })
+            });
+        }
 
-        // Initialize Claude Context
+        // Initialize Super Context
         this.context = new Context({
             embedding,
             vectorDatabase

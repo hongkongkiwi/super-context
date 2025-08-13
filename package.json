@@ -1,39 +1,46 @@
 {
-    "name": "claude-context",
+    "name": "@hongkongkiwi/super-context",
     "version": "0.1.1",
     "description": "A powerful code indexing tool with multi-platform support",
     "private": true,
     "scripts": {
         "build": "pnpm -r --filter='!./examples/*' build && pnpm -r --filter='./examples/*' build",
-        "build:core": "pnpm --filter @zilliz/claude-context-core build",
-        "build:vscode": "pnpm --filter semanticcodesearch compile",
-        "build:mcp": "pnpm --filter @zilliz/claude-context-mcp build",
+        "build:core": "pnpm --filter @hongkongkiwi/super-context-core build",
+        "build:vscode": "pnpm --filter @hongkongkiwi/super-context-vscode compile",
+        "build:mcp": "pnpm --filter @hongkongkiwi/super-context-mcp build",
         "dev": "pnpm -r dev",
-        "dev:core": "pnpm --filter @zilliz/claude-context-core dev",
-        "dev:vscode": "pnpm --filter semanticcodesearch watch",
-        "dev:mcp": "pnpm --filter @zilliz/claude-context-mcp dev",
+        "dev:core": "pnpm --filter @hongkongkiwi/super-context-core dev",
+        "dev:vscode": "pnpm --filter @hongkongkiwi/super-context-vscode watch",
+        "dev:mcp": "pnpm --filter @hongkongkiwi/super-context-mcp dev",
         "clean": "pnpm -r clean",
         "lint": "pnpm -r lint",
         "lint:fix": "pnpm -r run lint:fix",
         "typecheck": "pnpm -r run typecheck",
-        "release:core": "pnpm --filter @zilliz/claude-context-core... run build && pnpm --filter @zilliz/claude-context-core publish --access public --no-git-checks",
-        "release:mcp": "pnpm --filter @zilliz/claude-context-mcp... run build && pnpm --filter @zilliz/claude-context-mcp publish --access public --no-git-checks",
-        "release:vscode": "pnpm --filter @zilliz/claude-context-core build && pnpm --filter semanticcodesearch run webpack && pnpm --filter semanticcodesearch release",
-        "example:basic": "pnpm --filter claude-context-basic-example start"
+        "test": "vitest",
+        "test:ui": "vitest --ui",
+        "test:run": "vitest run",
+        "test:watch": "vitest --watch",
+        "test:coverage": "vitest --coverage",
+        "release:core": "pnpm --filter @hongkongkiwi/super-context-core... run build && pnpm --filter @hongkongkiwi/super-context-core publish --access public --no-git-checks",
+        "release:mcp": "pnpm --filter @hongkongkiwi/super-context-mcp... run build && pnpm --filter @hongkongkiwi/super-context-mcp publish --access public --no-git-checks",
+        "release:vscode": "pnpm --filter @hongkongkiwi/super-context-core build && pnpm --filter @hongkongkiwi/super-context-vscode run webpack && pnpm --filter @hongkongkiwi/super-context-vscode release",
+        "example:basic": "pnpm --filter @hongkongkiwi/super-context-basic-example start"
     },
     "devDependencies": {
-        "@types/node": "^20.0.0",
-        "@typescript-eslint/eslint-plugin": "^8.31.1",
-        "@typescript-eslint/parser": "^8.31.1",
+        "@types/node": "^20.19.10",
+        "@typescript-eslint/eslint-plugin": "^8.39.1",
+        "@typescript-eslint/parser": "^8.39.1",
+        "@vitest/ui": "^3.2.4",
         "assert": "^2.1.0",
         "browserify-zlib": "^0.2.0",
-        "eslint": "^9.25.1",
+        "eslint": "^9.33.0",
         "https-browserify": "^1.0.0",
         "os-browserify": "^0.3.0",
         "stream-http": "^3.2.0",
-        "tree-sitter-cli": "^0.25.6",
-        "typescript": "^5.8.3",
+        "tree-sitter-cli": "^0.25.8",
+        "typescript": "^5.9.2",
         "url": "^0.11.4",
+        "vitest": "^3.2.4",
         "vm-browserify": "^1.1.2"
     },
     "engines": {
@@ -42,8 +49,12 @@
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/zilliztech/claude-context.git"
+        "url": "https://github.com/hongkongkiwi/super-context.git"
     },
     "license": "MIT",
-    "author": "Cheney Zhang <277584121@qq.com>"
+    "author": "hongkongkiwi",
+    "contributors": [
+        "Cheney Zhang <277584121@qq.com> (Original author)"
+    ],
+    "forkedFrom": "https://github.com/zilliztech/claude-context"
 }

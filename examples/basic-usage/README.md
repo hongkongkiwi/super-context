@@ -1,6 +1,6 @@
 # Basic Usage Example
 
-This example demonstrates the basic usage of Claude Context.
+This example demonstrates the basic usage of Super Context.
 
 ## Prerequisites
 
@@ -40,14 +40,14 @@ This example demonstrates the basic usage of Claude Context.
    ```
 
 ## What This Example Does
-1. **Indexes Codebase**: Indexes the entire Claude Context project
+1. **Indexes Codebase**: Indexes the entire Super Context project
 2. **Performs Searches**: Executes semantic searches for different code patterns
 3. **Shows Results**: Displays search results with similarity scores and file locations
 
 ## Expected Output
 
 ```
-🚀 Claude Context Real Usage Example
+🚀 Super Context Real Usage Example
 ===============================
 ...
 🔌 Connecting to vector database at: ...
