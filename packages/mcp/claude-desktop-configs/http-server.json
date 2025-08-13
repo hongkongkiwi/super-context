@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "super-context-http": {
+      "command": "npx",
+      "args": [
+        "@hongkongkiwi/super-context-mcp/dist/index-multi-transport.js"
+      ],
+      "env": {
+        "OPENAI_API_KEY": "your-openai-api-key-here",
+        "MCP_TRANSPORT": "http",
+        "MCP_PORT": "3000",
+        "MCP_CORS": "true",
+        "ACCESS_TOKEN": "your-access-token-16-chars-min"
+      }
+    }
+  }
+}

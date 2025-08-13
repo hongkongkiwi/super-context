@@ -1,19 +1,26 @@
 #!/usr/bin/env node
 
-// CRITICAL: Redirect console outputs to stderr IMMEDIATELY to avoid interfering with MCP JSON protocol
-// Only MCP protocol messages should go to stdout
+/**
+ * Super Context MCP Server - Standard MCP Configuration
+ * Follows standard MCP patterns: environment variable configuration, single binary
+ * Designed for use with claude_desktop_config.json
+ */
+
+// CRITICAL: Redirect console outputs to stderr for STDIO transport
 const originalConsoleLog = console.log;
 const originalConsoleWarn = console.warn;
 
-console.log = (...args: any[]) => {
-    process.stderr.write('[LOG] ' + args.join(' ') + '\n');
-};
+const isStdioTransport = !process.env.MCP_TRANSPORT || process.env.MCP_TRANSPORT.toLowerCase() === 'stdio';
 
-console.warn = (...args: any[]) => {
-    process.stderr.write('[WARN] ' + args.join(' ') + '\n');
-};
-
-// console.error already goes to stderr by default
+if (isStdioTransport) {
+    console.log = (...args: any[]) => {
+        process.stderr.write('[LOG] ' + args.join(' ') + '\n');
+    };
+    
+    console.warn = (...args: any[]) => {
+        process.stderr.write('[WARN] ' + args.join(' ') + '\n');
+    };
+}
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -24,26 +31,54 @@ import {
 import { Context } from "@hongkongkiwi/super-context-core";
 import { MilvusVectorDatabase, QdrantVectorDatabase } from "@hongkongkiwi/super-context-core";
 
-// Import our modular components
-import { createMcpConfig, logConfigurationSummary, showHelpMessage, ContextMcpConfig } from "./config.js";
+// Import components
+import { createMcpConfig, ContextMcpConfig } from "./config.js";
 import { createEmbeddingInstance, logEmbeddingProviderInfo } from "./embedding.js";
 import { SnapshotManager } from "./snapshot.js";
 import { SyncManager } from "./sync.js";
 import { ToolHandlers } from "./handlers.js";
+import { StatelessToolHandlers } from "./stateless-handlers.js";
+import { FeatureManager } from "./feature-manager.js";
 
-class ContextMcpServer {
+/**
+ * Standard MCP Server - Environment Variable Driven Configuration
+ * Follows MCP best practices for claude_desktop_config.json usage
+ */
+class StandardMcpServer {
     private server: Server;
-    private context: Context;
-    private snapshotManager: SnapshotManager;
-    private syncManager: SyncManager;
-    private toolHandlers: ToolHandlers;
+    private context!: Context;
+    private snapshotManager!: SnapshotManager;
+    private syncManager!: SyncManager;
+    private toolHandlers!: ToolHandlers;
+    private statelessHandlers!: StatelessToolHandlers;
+    private isStateless: boolean;
+    private config: ContextMcpConfig;
 
-    constructor(config: ContextMcpConfig) {
+    constructor() {
+        // Initialize features from environment (MCP standard)
+        FeatureManager.initializeFromEnv();
+        
+        // Load configuration from environment
+        this.config = createMcpConfig();
+        this.isStateless = process.env.MCP_STATELESS_MODE === 'true';
+
+        console.log(`[MCP] Super Context server starting...`);
+        console.log(`[MCP] Mode: ${this.isStateless ? 'Stateless' : 'Filesystem'}`);
+        console.log(`[MCP] Transport: ${process.env.MCP_TRANSPORT || 'STDIO'}`);
+
+        // Log optional features status
+        const enabledFeatures = FeatureManager.getEnabledFeatures();
+        if (enabledFeatures.length > 0) {
+            console.log(`[MCP] Optional features: ${enabledFeatures.join(', ')}`);
+        } else {
+            console.log(`[MCP] Optional features: none (all disabled)`);
+        }
+
         // Initialize MCP server
         this.server = new Server(
             {
-                name: config.name,
-                version: config.version
+                name: "super-context",
+                version: "0.1.1"
             },
             {
                 capabilities: {
@@ -52,29 +87,33 @@ class ContextMcpServer {
             }
         );
 
-        // Initialize embedding provider
-        console.log(`[EMBEDDING] Initializing embedding provider: ${config.embeddingProvider}`);
-        console.log(`[EMBEDDING] Using model: ${config.embeddingModel}`);
+        this.initializeCore();
+        this.setupTools();
+    }
 
-        const embedding = createEmbeddingInstance(config);
-        logEmbeddingProviderInfo(config, embedding);
+    private initializeCore() {
+        console.log(`[EMBEDDING] Provider: ${this.config.embeddingProvider}, Model: ${this.config.embeddingModel}`);
+
+        // Initialize embedding provider
+        const embedding = createEmbeddingInstance(this.config);
+        logEmbeddingProviderInfo(this.config, embedding);
 
         // Initialize vector database
         let vectorDatabase;
-        if (config.vectorDatabase === 'qdrant') {
-            console.log(`[VECTOR_DB] Initializing Qdrant vector database`);
+        if (this.config.vectorDatabase === 'qdrant') {
+            console.log(`[VECTOR_DB] Using Qdrant`);
             vectorDatabase = new QdrantVectorDatabase({
-                url: config.qdrantUrl,
-                apiKey: config.qdrantApiKey,
-                host: config.qdrantHost,
-                port: config.qdrantPort,
-                https: config.qdrantHttps
+                url: this.config.qdrantUrl,
+                apiKey: this.config.qdrantApiKey,
+                host: this.config.qdrantHost,
+                port: this.config.qdrantPort,
+                https: this.config.qdrantHttps
             });
         } else {
-            console.log(`[VECTOR_DB] Initializing Milvus vector database`);
+            console.log(`[VECTOR_DB] Using Milvus`);
             vectorDatabase = new MilvusVectorDatabase({
-                address: config.milvusAddress,
-                ...(config.milvusToken && { token: config.milvusToken })
+                address: this.config.milvusAddress,
+                ...(this.config.milvusToken && { token: this.config.milvusToken })
             });
         }
 
@@ -84,230 +123,340 @@ class ContextMcpServer {
             vectorDatabase
         });
 
-        // Initialize managers
-        this.snapshotManager = new SnapshotManager();
-        this.syncManager = new SyncManager(this.context, this.snapshotManager);
-        this.toolHandlers = new ToolHandlers(this.context, this.snapshotManager);
-
-        // Load existing codebase snapshot on startup
-        this.snapshotManager.loadCodebaseSnapshot();
-
-        this.setupTools();
+        // Initialize handlers based on mode
+        if (this.isStateless) {
+            this.statelessHandlers = new StatelessToolHandlers(this.context);
+        } else {
+            this.snapshotManager = new SnapshotManager();
+            this.syncManager = new SyncManager(this.context, this.snapshotManager);
+            this.toolHandlers = new ToolHandlers(this.context, this.snapshotManager);
+            this.snapshotManager.loadCodebaseSnapshot();
+        }
     }
 
     private setupTools() {
-        const index_description = `
-Index a codebase directory to enable semantic search using a configurable code splitter.
+        if (this.isStateless) {
+            this.setupStatelessTools();
+        } else {
+            this.setupFilesystemTools();
+        }
+    }
 
-⚠️ **IMPORTANT**:
-- You MUST provide an absolute path to the target codebase.
-
-✨ **Usage Guidance**:
-- This tool is typically used when search fails due to an unindexed codebase.
-- If indexing is attempted on an already indexed path, and a conflict is detected, you MUST prompt the user to confirm whether to proceed with a force index (i.e., re-indexing and overwriting the previous index).
-`;
-
-
-        const search_description = `
-Search the indexed codebase using natural language queries within a specified absolute path.
-
-⚠️ **IMPORTANT**:
-- You MUST provide an absolute path.
-
-🎯 **When to Use**:
-This tool is versatile and can be used before completing various tasks to retrieve relevant context:
-- **Code search**: Find specific functions, classes, or implementations
-- **Context-aware assistance**: Gather relevant code context before making changes
-- **Issue identification**: Locate problematic code sections or bugs
-- **Code review**: Understand existing implementations and patterns
-- **Refactoring**: Find all related code pieces that need to be updated
-- **Feature development**: Understand existing architecture and similar implementations
-- **Duplicate detection**: Identify redundant or duplicated code patterns across the codebase
-
-✨ **Usage Guidance**:
-- If the codebase is not indexed, this tool will return a clear error message indicating that indexing is required first.
-- You can then use the index_codebase tool to index the codebase before searching again.
-`;
-
-        // Define available tools
+    private setupStatelessTools() {
+        console.log('[MCP] Setting up stateless tools');
+        
+        // Define tools following MCP standards
         this.server.setRequestHandler(ListToolsRequestSchema, async () => {
-            return {
-                tools: [
-                    {
-                        name: "index_codebase",
-                        description: index_description,
-                        inputSchema: {
-                            type: "object",
-                            properties: {
-                                path: {
-                                    type: "string",
-                                    description: `ABSOLUTE path to the codebase directory to index.`
+            const tools = [
+                {
+                    name: "index_files",
+                    description: "Index files directly from content - no filesystem access required",
+                    inputSchema: {
+                        type: "object",
+                        properties: {
+                            project: {
+                                type: "object",
+                                description: "Project context with files to index",
+                                properties: {
+                                    name: { type: "string", description: "Project identifier" },
+                                    files: {
+                                        type: "array",
+                                        items: {
+                                            type: "object",
+                                            properties: {
+                                                path: { type: "string", description: "File path" },
+                                                content: { type: "string", description: "File content" },
+                                                language: { type: "string", description: "Programming language hint" }
+                                            },
+                                            required: ["path", "content"]
+                                        }
+                                    }
                                 },
-                                force: {
-                                    type: "boolean",
-                                    description: "Force re-indexing even if already indexed",
-                                    default: false
-                                },
-                                splitter: {
-                                    type: "string",
-                                    description: "Code splitter to use: 'ast' for syntax-aware splitting with automatic fallback, 'langchain' for character-based splitting",
-                                    enum: ["ast", "langchain"],
-                                    default: "ast"
-                                },
-                                customExtensions: {
-                                    type: "array",
-                                    items: {
-                                        type: "string"
-                                    },
-                                    description: "Optional: Additional file extensions to include beyond defaults (e.g., ['.vue', '.svelte', '.astro']). Extensions should include the dot prefix or will be automatically added",
-                                    default: []
-                                },
-                                ignorePatterns: {
-                                    type: "array",
-                                    items: {
-                                        type: "string"
-                                    },
-                                    description: "Optional: Additional ignore patterns to exclude specific files/directories beyond defaults. Only include this parameter if the user explicitly requests custom ignore patterns (e.g., ['static/**', '*.tmp', 'private/**'])",
-                                    default: []
-                                }
+                                required: ["name", "files"]
                             },
-                            required: ["path"]
+                            splitter: { type: "string", enum: ["ast", "langchain"], default: "ast" }
+                        },
+                        required: ["project"]
+                    }
+                },
+                {
+                    name: "search_code",
+                    description: "Search indexed content using natural language queries",
+                    inputSchema: {
+                        type: "object",
+                        properties: {
+                            query: { type: "string", description: "Natural language search query" },
+                            project: { type: "string", description: "Optional: Project name to search in" },
+                            limit: { type: "number", default: 10, description: "Maximum results to return" }
+                        },
+                        required: ["query"]
+                    }
+                },
+                {
+                    name: "get_status",
+                    description: "Get server status and configuration",
+                    inputSchema: { type: "object", properties: {} }
+                },
+                {
+                    name: "clear_index",
+                    description: "Clear index for a project or all projects",
+                    inputSchema: {
+                        type: "object",
+                        properties: {
+                            project: { type: "string", description: "Optional: Project to clear" }
                         }
-                    },
-                    {
-                        name: "search_code",
-                        description: search_description,
-                        inputSchema: {
-                            type: "object",
-                            properties: {
-                                path: {
-                                    type: "string",
-                                    description: `ABSOLUTE path to the codebase directory to search in.`
-                                },
-                                query: {
-                                    type: "string",
-                                    description: "Natural language query to search for in the codebase"
-                                },
-                                limit: {
-                                    type: "number",
-                                    description: "Maximum number of results to return",
-                                    default: 10,
-                                    maximum: 50
-                                },
-                                extensionFilter: {
-                                    type: "array",
-                                    items: {
-                                        type: "string"
-                                    },
-                                    description: "Optional: List of file extensions to filter results. (e.g., ['.ts','.py']).",
-                                    default: []
-                                }
-                            },
-                            required: ["path", "query"]
-                        }
-                    },
-                    {
-                        name: "clear_index",
-                        description: `Clear the search index. IMPORTANT: You MUST provide an absolute path.`,
-                        inputSchema: {
-                            type: "object",
-                            properties: {
-                                path: {
-                                    type: "string",
-                                    description: `ABSOLUTE path to the codebase directory to clear.`
-                                }
-                            },
-                            required: ["path"]
-                        }
-                    },
-                    {
-                        name: "get_indexing_status",
-                        description: `Get the current indexing status of a codebase. Shows progress percentage for actively indexing codebases and completion status for indexed codebases.`,
-                        inputSchema: {
-                            type: "object",
-                            properties: {
-                                path: {
-                                    type: "string",
-                                    description: `ABSOLUTE path to the codebase directory to check status for.`
-                                }
-                            },
-                            required: ["path"]
-                        }
-                    },
-                ]
-            };
+                    }
+                }
+            ];
+
+            return { tools };
         });
 
-        // Handle tool execution
+        // Handle tool calls
         this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
             const { name, arguments: args } = request.params;
 
-            switch (name) {
-                case "index_codebase":
-                    return await this.toolHandlers.handleIndexCodebase(args);
-                case "search_code":
-                    return await this.toolHandlers.handleSearchCode(args);
-                case "clear_index":
-                    return await this.toolHandlers.handleClearIndex(args);
-                case "get_indexing_status":
-                    return await this.toolHandlers.handleGetIndexingStatus(args);
-
-                default:
-                    throw new Error(`Unknown tool: ${name}`);
+            try {
+                switch (name) {
+                    case "index_files":
+                        return await this.statelessHandlers.handleIndexFiles(args);
+                    case "search_code":
+                        return await this.statelessHandlers.handleSearchCode(args);
+                    case "get_status":
+                        return this.handleGetStatus();
+                    case "clear_index":
+                        return await this.statelessHandlers.handleClearIndex(args);
+                    default:
+                        throw new Error(`Unknown tool: ${name}`);
+                }
+            } catch (error: any) {
+                console.error(`[MCP] Tool error for ${name}:`, error.message);
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Error executing ${name}: ${error.message}`
+                    }],
+                    isError: true
+                };
             }
         });
     }
 
+    private setupFilesystemTools() {
+        console.log('[MCP] Setting up filesystem tools');
+        
+        this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+            const tools = [
+                {
+                    name: "index_codebase",
+                    description: "Index a codebase directory for semantic search",
+                    inputSchema: {
+                        type: "object",
+                        properties: {
+                            path: { type: "string", description: "Absolute path to codebase directory" },
+                            force: { type: "boolean", default: false, description: "Force re-indexing" },
+                            splitter: { type: "string", enum: ["ast", "langchain"], default: "ast" }
+                        },
+                        required: ["path"]
+                    }
+                },
+                {
+                    name: "search_code",
+                    description: "Search indexed codebase using natural language queries",
+                    inputSchema: {
+                        type: "object",
+                        properties: {
+                            path: { type: "string", description: "Absolute path to search in" },
+                            query: { type: "string", description: "Natural language search query" },
+                            limit: { type: "number", default: 10, maximum: 50, description: "Maximum results" }
+                        },
+                        required: ["path", "query"]
+                    }
+                },
+                {
+                    name: "get_status",
+                    description: "Get server status and indexing information",
+                    inputSchema: {
+                        type: "object",
+                        properties: {
+                            path: { type: "string", description: "Optional: Check specific path" }
+                        }
+                    }
+                },
+                {
+                    name: "clear_index",
+                    description: "Clear search index for a codebase",
+                    inputSchema: {
+                        type: "object",
+                        properties: {
+                            path: { type: "string", description: "Absolute path to clear" }
+                        },
+                        required: ["path"]
+                    }
+                }
+            ];
+
+            return { tools };
+        });
+
+        this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+            const { name, arguments: args } = request.params;
+
+            try {
+                switch (name) {
+                    case "index_codebase":
+                        return await this.toolHandlers.handleIndexCodebase(args);
+                    case "search_code":
+                        return await this.toolHandlers.handleSearchCode(args);
+                    case "get_status":
+                        return await this.handleGetStatus(args?.path as string);
+                    case "clear_index":
+                        return await this.toolHandlers.handleClearIndex(args);
+                    default:
+                        throw new Error(`Unknown tool: ${name}`);
+                }
+            } catch (error: any) {
+                console.error(`[MCP] Tool error for ${name}:`, error.message);
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Error executing ${name}: ${error.message}`
+                    }],
+                    isError: true
+                };
+            }
+        });
+    }
+
+    private handleGetStatus(path?: string) {
+        const featureStatus = FeatureManager.getFeatureStatus();
+        const enabledFeatures = FeatureManager.getEnabledFeatures();
+        const config = FeatureManager.getConfig();
+
+        let statusText = `# Super Context MCP Server Status\n\n`;
+        
+        statusText += `**Configuration:**\n`;
+        statusText += `- Mode: ${this.isStateless ? 'Stateless' : 'Filesystem'}\n`;
+        statusText += `- Transport: ${process.env.MCP_TRANSPORT || 'STDIO'}\n`;
+        statusText += `- Embedding: ${this.config.embeddingProvider} (${this.config.embeddingModel})\n`;
+        statusText += `- Vector DB: ${this.config.vectorDatabase}\n\n`;
+        
+        statusText += `**Optional Features:**\n`;
+        statusText += `- Content Encryption: ${featureStatus.encryption ? '✅ Enabled' : '❌ Disabled'}\n`;
+        statusText += `- Authentication: ${featureStatus.authentication ? '✅ Enabled' : '❌ Disabled'}\n`;
+        
+        if (process.env.MCP_TRANSPORT === 'http' || process.env.MCP_TRANSPORT === 'https') {
+            statusText += `- CORS: ${featureStatus.corsEnabled ? '✅ Enabled' : '❌ Disabled'}\n`;
+            statusText += `- Rate Limiting: ${featureStatus.rateLimitEnabled ? `✅ ${config.transport?.rateLimit}/min` : '❌ Disabled'}\n`;
+        }
+        
+        if (enabledFeatures.length === 0) {
+            statusText += `\n**Running with minimal configuration** - no optional features enabled.\n`;
+            statusText += `To enable features, set environment variables in your claude_desktop_config.json:\n`;
+            statusText += `- ENCRYPTION_KEY=... - Enable content encryption\n`;
+            statusText += `- ACCESS_TOKEN=... - Enable authentication\n`;
+        } else {
+            statusText += `\n**Active Features:** ${enabledFeatures.join(', ')}\n`;
+        }
+
+        return {
+            content: [{
+                type: "text",
+                text: statusText
+            }],
+            isError: false
+        };
+    }
+
     async start() {
-        console.log('[SYNC-DEBUG] MCP server start() method called');
-        console.log('Starting Context MCP server...');
-
+        console.log('[MCP] Connecting to transport...');
+        
+        // For now, only STDIO transport in standard MCP mode
+        // Other transports would require different connection patterns
         const transport = new StdioServerTransport();
-        console.log('[SYNC-DEBUG] StdioServerTransport created, attempting server connection...');
-
         await this.server.connect(transport);
-        console.log("MCP server started and listening on stdio.");
-        console.log('[SYNC-DEBUG] Server connection established successfully');
+        
+        console.log('[MCP] ✅ Server connected and ready');
 
-        // Start background sync after server is connected
-        console.log('[SYNC-DEBUG] Initializing background sync...');
-        this.syncManager.startBackgroundSync();
-        console.log('[SYNC-DEBUG] MCP server initialization complete');
+        // Start background sync only in filesystem mode
+        if (!this.isStateless) {
+            this.syncManager.startBackgroundSync();
+            console.log('[MCP] Background sync started');
+        }
+    }
+}
+
+// Environment validation
+function validateEnvironment() {
+    if (!process.env.OPENAI_API_KEY && !process.env.HUGGINGFACE_API_KEY && !process.env.VOYAGE_API_KEY) {
+        console.error('[MCP] ERROR: No embedding provider API key found');
+        console.error('[MCP] Please set one of: OPENAI_API_KEY, HUGGINGFACE_API_KEY, VOYAGE_API_KEY');
+        process.exit(1);
     }
 }
 
 // Main execution
 async function main() {
-    // Parse command line arguments
-    const args = process.argv.slice(2);
+    try {
+        // Check for help flag
+        if (process.argv.includes('--help') || process.argv.includes('-h')) {
+            console.log(`
+# Super Context MCP Server
 
-    // Show help if requested
-    if (args.includes('--help') || args.includes('-h')) {
-        showHelpMessage();
-        process.exit(0);
+Standard MCP server for semantic code indexing and search.
+Configured via environment variables in claude_desktop_config.json.
+
+## Required Environment Variables:
+- OPENAI_API_KEY: Your OpenAI API key for embeddings
+
+## Optional Environment Variables:
+- VECTOR_DATABASE: 'milvus' (default) or 'qdrant'
+- MCP_STATELESS_MODE: 'true' for stateless mode
+- ENCRYPTION_KEY: Enable content encryption (32+ chars)
+- ACCESS_TOKEN: Enable authentication (16+ chars)
+- LOG_LEVEL: 'silent', 'error', 'warn', 'info', 'debug'
+
+## Example claude_desktop_config.json:
+{
+  "mcpServers": {
+    "super-context": {
+      "command": "npx",
+      "args": ["@hongkongkiwi/super-context-mcp"],
+      "env": {
+        "OPENAI_API_KEY": "your-api-key"
+      }
     }
-
-    // Create configuration
-    const config = createMcpConfig();
-    logConfigurationSummary(config);
-
-    const server = new ContextMcpServer(config);
-    await server.start();
+  }
 }
 
-// Handle graceful shutdown
+For more configuration examples, see the claude-desktop-configs/ directory.
+`);
+            process.exit(0);
+        }
+
+        validateEnvironment();
+        
+        const server = new StandardMcpServer();
+        await server.start();
+        
+    } catch (error) {
+        console.error('[MCP] Fatal error:', error);
+        process.exit(1);
+    }
+}
+
+// Graceful shutdown
 process.on('SIGINT', () => {
-    console.error("Received SIGINT, shutting down gracefully...");
+    console.error("[MCP] Received SIGINT, shutting down gracefully...");
     process.exit(0);
 });
 
 process.on('SIGTERM', () => {
-    console.error("Received SIGTERM, shutting down gracefully...");
+    console.error("[MCP] Received SIGTERM, shutting down gracefully...");
     process.exit(0);
 });
 
-// Always start the server - this is designed to be the main entry point
 main().catch((error) => {
-    console.error("Fatal error:", error);
+    console.error("[MCP] Fatal error:", error);
     process.exit(1);
 });

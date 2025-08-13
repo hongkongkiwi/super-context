@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "super-context-qdrant": {
+      "command": "npx",
+      "args": [
+        "@hongkongkiwi/super-context-mcp"
+      ],
+      "env": {
+        "OPENAI_API_KEY": "your-openai-api-key-here",
+        "VECTOR_DATABASE": "qdrant",
+        "QDRANT_URL": "http://localhost:6333",
+        "QDRANT_API_KEY": "your-qdrant-api-key-if-needed"
+      }
+    }
+  }
+}

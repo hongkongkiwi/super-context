@@ -1,0 +1,28 @@
+{
+    "name": "@hongkongkiwi/super-context-mcp",
+    "version": "0.1.1",
+    "exports": {
+        ".": "./src/index.ts"
+    },
+    "publish": {
+        "exclude": [
+            "node_modules",
+            "dist",
+            "coverage",
+            "*.test.ts",
+            "*.spec.ts",
+            "test",
+            "tests",
+            "__tests__",
+            "examples",
+            ".github",
+            ".vscode",
+            ".idea",
+            "*.log",
+            ".DS_Store",
+            "Thumbs.db",
+            "*.tmp",
+            "*.temp"
+        ]
+    }
+}

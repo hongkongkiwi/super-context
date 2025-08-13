@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "super-context-stateless": {
+      "command": "npx",
+      "args": [
+        "@hongkongkiwi/super-context-mcp"
+      ],
+      "env": {
+        "OPENAI_API_KEY": "your-openai-api-key-here",
+        "MCP_STATELESS_MODE": "true"
+      }
+    }
+  }
+}

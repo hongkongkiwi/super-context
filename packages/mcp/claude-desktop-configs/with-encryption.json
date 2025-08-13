@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "super-context-secure": {
+      "command": "npx",
+      "args": [
+        "@hongkongkiwi/super-context-mcp"
+      ],
+      "env": {
+        "OPENAI_API_KEY": "your-openai-api-key-here",
+        "ENCRYPTION_KEY": "your-32-character-encryption-key-here"
+      }
+    }
+  }
+}

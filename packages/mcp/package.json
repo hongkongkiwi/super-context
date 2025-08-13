@@ -1,21 +1,40 @@
 {
     "name": "@hongkongkiwi/super-context-mcp",
     "version": "0.1.1",
-    "description": "Model Context Protocol integration for Super Context",
+    "description": "Model Context Protocol server for Super Context - AI-powered code indexing and search for Claude",
     "type": "module",
-    "main": "dist/index.js",
-    "types": "dist/index.d.ts",
-    "bin": "dist/index.js",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "bin": {
+        "super-context-mcp": "./dist/index.js"
+    },
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "sideEffects": false,
     "scripts": {
-        "build": "pnpm clean && tsc --build --force",
+        "build": "pnpm clean && pnpm build:tsc",
+        "build:tsc": "tsc --build --force",
+        "build:modern": "pnpm clean && tsup",
         "dev": "tsx --watch src/index.ts",
         "clean": "rm -rf dist",
         "lint": "eslint src --ext .ts",
         "lint:fix": "eslint src --ext .ts --fix",
         "typecheck": "tsc --noEmit",
         "start": "tsx src/index.ts",
+        "start:multi": "tsx src/index-multi-transport.ts",
+        "start:minimal": "tsx src/index-minimal.ts",
         "start:with-env": "OPENAI_API_KEY=${OPENAI_API_KEY:your-api-key-here} MILVUS_ADDRESS=${MILVUS_ADDRESS:localhost:19530} tsx src/index.ts",
-        "prepublishOnly": "pnpm build"
+        "start:http": "MCP_TRANSPORT=http MCP_PORT=3000 tsx src/index-multi-transport.ts",
+        "start:https": "MCP_TRANSPORT=https MCP_PORT=3000 tsx src/index-multi-transport.ts",
+        "start:sse": "MCP_TRANSPORT=sse MCP_PORT=3001 tsx src/index-multi-transport.ts",
+        "validate": "pnpm lint && pnpm typecheck && publint && attw --pack",
+        "prepublishOnly": "pnpm build && pnpm validate"
     },
     "dependencies": {
         "@hongkongkiwi/super-context-core": "workspace:*",
@@ -24,25 +43,67 @@
     },
     "devDependencies": {
         "@types/node": "^20.0.0",
-        "tsx": "^4.19.4",
-        "typescript": "^5.0.0"
+        "tsx": "^4.19.4"
+    },
+    "peerDependencies": {
+        "typescript": ">=5.0.0"
+    },
+    "peerDependenciesMeta": {
+        "typescript": {
+            "optional": true
+        }
     },
     "files": [
         "dist",
-        "README.md"
+        "README.md",
+        "LICENSE",
+        "CHANGELOG.md"
+    ],
+    "publishConfig": {
+        "access": "public",
+        "registry": "https://registry.npmjs.org/",
+        "provenance": true
+    },
+    "engines": {
+        "node": ">=20.0.0"
+    },
+    "packageManager": "pnpm@>=10.0.0",
+    "keywords": [
+        "mcp",
+        "model-context-protocol",
+        "claude",
+        "ai",
+        "llm",
+        "code-indexing",
+        "semantic-search",
+        "vector-database",
+        "code-analysis",
+        "developer-tools",
+        "anthropic",
+        "typescript",
+        "javascript",
+        "server",
+        "cli"
     ],
     "repository": {
         "type": "git",
-        "url": "https://github.com/hongkongkiwi/super-context.git",
+        "url": "git+https://github.com/hongkongkiwi/super-context.git",
         "directory": "packages/mcp"
+    },
+    "homepage": "https://github.com/hongkongkiwi/super-context#readme",
+    "bugs": {
+        "url": "https://github.com/hongkongkiwi/super-context/issues"
     },
     "license": "MIT",
     "author": "hongkongkiwi",
     "contributors": [
-        "Zilliz (Original author)"
+        "Cheney Zhang <277584121@qq.com> (Original author)"
     ],
-    "forkedFrom": "https://github.com/zilliztech/claude-context",
-    "publishConfig": {
-        "access": "public"
-    }
+    "funding": [
+        {
+            "type": "github",
+            "url": "https://github.com/sponsors/hongkongkiwi"
+        }
+    ],
+    "forkedFrom": "https://github.com/zilliztech/claude-context"
 }

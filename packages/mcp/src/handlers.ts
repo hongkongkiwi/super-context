@@ -4,16 +4,19 @@ import * as crypto from "crypto";
 import { Context, COLLECTION_LIMIT_MESSAGE } from "@hongkongkiwi/super-context-core";
 import { SnapshotManager } from "./snapshot.js";
 import { ensureAbsolutePath, truncateContent, trackCodebasePath } from "./utils.js";
+import { GitHandlers } from "./git-handlers.js";
 
 export class ToolHandlers {
     private context: Context;
     private snapshotManager: SnapshotManager;
+    private gitHandlers: GitHandlers;
     private indexingStats: { indexedFiles: number; totalChunks: number } | null = null;
     private currentWorkspace: string;
 
     constructor(context: Context, snapshotManager: SnapshotManager) {
         this.context = context;
         this.snapshotManager = snapshotManager;
+        this.gitHandlers = new GitHandlers();
         this.currentWorkspace = process.cwd();
         console.log(`[WORKSPACE] Current workspace: ${this.currentWorkspace}`);
     }
@@ -36,7 +39,7 @@ export class ToolHandlers {
             const vectorDb = this.context.getVectorDatabase();
 
             // Use the new listCollections method from the interface
-            const collections = await vectorDb.listCollections();
+            const collections = await vectorDb.listCollections?.() || [];
 
             console.log(`[SYNC-CLOUD] 📋 Found ${collections.length} collections in Zilliz Cloud`);
 
@@ -70,7 +73,7 @@ export class ToolHandlers {
                     console.log(`[SYNC-CLOUD] 🔍 Checking collection: ${collectionName}`);
 
                     // Query the first document to get metadata
-                    const results = await vectorDb.query(
+                    const results = await (vectorDb as any).query?.(
                         collectionName,
                         '', // Empty filter to get all results
                         ['metadata'], // Only fetch metadata field
@@ -368,7 +371,7 @@ export class ToolHandlers {
 
             // Start indexing with the appropriate context and progress tracking
             console.log(`[BACKGROUND-INDEX] 🚀 Beginning codebase indexing process...`);
-            const stats = await contextForThisTask.indexCodebase(absolutePath, (progress) => {
+            const stats = await contextForThisTask.indexCodebase(absolutePath, (progress: any) => {
                 // Update progress in snapshot manager
                 this.snapshotManager.updateIndexingProgress(absolutePath, progress.percentage);
 
@@ -760,5 +763,26 @@ export class ToolHandlers {
                 isError: true
             };
         }
+    }
+
+    // Git integration methods
+    getGitTools() {
+        return this.gitHandlers.getGitTools();
+    }
+
+    async handleGetGitContext(args: any) {
+        return await this.gitHandlers.handleGetGitContext(args);
+    }
+
+    async handleGetGitBlame(args: any) {
+        return await this.gitHandlers.handleGetGitBlame(args);
+    }
+
+    async handleGetGitHistory(args: any) {
+        return await this.gitHandlers.handleGetGitHistory(args);
+    }
+
+    async handleGetGitHotspots(args: any) {
+        return await this.gitHandlers.handleGetGitHotspots(args);
     }
 } 
