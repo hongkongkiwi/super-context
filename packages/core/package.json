@@ -1,16 +1,61 @@
 {
     "name": "@hongkongkiwi/super-context-core",
     "version": "0.1.1",
-    "description": "Core indexing engine for Super Context",
-    "main": "dist/index.js",
-    "types": "dist/index.d.ts",
+    "description": "Core indexing engine for Super Context - AI-powered code search and semantic analysis",
+    "type": "module",
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        },
+        "./splitter": {
+            "types": "./dist/splitter/index.d.ts",
+            "import": "./dist/splitter/index.js",
+            "default": "./dist/splitter/index.js"
+        },
+        "./embedding": {
+            "types": "./dist/embedding/index.d.ts",
+            "import": "./dist/embedding/index.js",
+            "default": "./dist/embedding/index.js"
+        },
+        "./vectordb": {
+            "types": "./dist/vectordb/index.d.ts",
+            "import": "./dist/vectordb/index.js",
+            "default": "./dist/vectordb/index.js"
+        },
+        "./utils": {
+            "types": "./dist/utils/index.d.ts",
+            "import": "./dist/utils/index.js",
+            "default": "./dist/utils/index.js"
+        },
+        "./git": {
+            "types": "./dist/git/index.d.ts",
+            "import": "./dist/git/index.js",
+            "default": "./dist/git/index.js"
+        },
+        "./search": {
+            "types": "./dist/search/index.d.ts",
+            "import": "./dist/search/index.js",
+            "default": "./dist/search/index.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "sideEffects": false,
     "scripts": {
-        "build": "pnpm clean && tsc --build --force",
+        "build": "pnpm clean && pnpm build:tsc",
+        "build:tsc": "tsc --build --force",
+        "build:modern": "pnpm clean && tsup",
         "dev": "tsc --watch",
         "clean": "rm -rf dist",
         "lint": "eslint src --ext .ts",
         "lint:fix": "eslint src --ext .ts --fix",
-        "typecheck": "tsc --noEmit"
+        "typecheck": "tsc --noEmit",
+        "validate": "pnpm lint && pnpm typecheck && publint && attw --pack",
+        "prepublishOnly": "pnpm build && pnpm validate"
     },
     "dependencies": {
         "@aws-sdk/client-bedrock-runtime": "^3.689.0",
@@ -26,7 +71,6 @@
         "weaviate-ts-client": "^2.2.0",
         "chromadb": "^1.9.1",
         "@upstash/vector": "^1.2.0",
-        "semadb-client": "^1.0.0",
         "firebase": "^10.0.0",
         "firebase-admin": "^12.0.0",
         "@aws-sdk/client-s3": "^3.0.0",
@@ -52,29 +96,83 @@
     },
     "devDependencies": {
         "@types/fs-extra": "^11.0.0",
-        "@types/jest": "^30.0.0",
-        "@types/mock-fs": "^4.13.4",
-        "@types/pg": "^8.11.10",
-        "jest": "^30.0.0",
-        "mock-fs": "^5.5.0",
-        "ts-jest": "^29.4.0"
+        "@types/node": "^20.0.0",
+        "@types/pg": "^8.11.10"
+    },
+    "peerDependencies": {
+        "typescript": ">=5.0.0"
+    },
+    "peerDependenciesMeta": {
+        "typescript": {
+            "optional": true
+        }
     },
     "files": [
         "dist",
-        "README.md"
+        "README.md",
+        "LICENSE",
+        "CHANGELOG.md"
+    ],
+    "publishConfig": {
+        "access": "public",
+        "registry": "https://registry.npmjs.org/",
+        "provenance": true
+    },
+    "engines": {
+        "node": ">=20.0.0"
+    },
+    "packageManager": "pnpm@>=10.0.0",
+    "keywords": [
+        "vector-database",
+        "code-indexing",
+        "semantic-search",
+        "embeddings",
+        "milvus",
+        "qdrant",
+        "pinecone",
+        "weaviate", 
+        "chroma",
+        "semadb",
+        "ai",
+        "llm",
+        "machine-learning",
+        "natural-language-processing",
+        "code-analysis",
+        "ast",
+        "tree-sitter",
+        "typescript",
+        "javascript",
+        "python",
+        "java",
+        "rust",
+        "go",
+        "csharp",
+        "scala",
+        "git-integration",
+        "jupyter-notebook",
+        "semantic-similarity",
+        "code-search",
+        "developer-tools"
     ],
     "repository": {
         "type": "git",
-        "url": "https://github.com/hongkongkiwi/super-context.git",
+        "url": "git+https://github.com/hongkongkiwi/super-context.git",
         "directory": "packages/core"
+    },
+    "homepage": "https://github.com/hongkongkiwi/super-context#readme",
+    "bugs": {
+        "url": "https://github.com/hongkongkiwi/super-context/issues"
     },
     "license": "MIT",
     "author": "hongkongkiwi",
     "contributors": [
-        "Zilliz (Original author)"
+        "Cheney Zhang <277584121@qq.com> (Original author)"
     ],
-    "forkedFrom": "https://github.com/zilliztech/claude-context",
-    "publishConfig": {
-        "access": "public"
-    }
+    "funding": [
+        {
+            "type": "github",
+            "url": "https://github.com/sponsors/hongkongkiwi"
+        }
+    ],
+    "forkedFrom": "https://github.com/zilliztech/claude-context"
 }

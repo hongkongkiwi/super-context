@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
+import * as fs from 'fs'
 // Mock the langchain splitter before importing Context
 vi.mock('@core/splitter/langchain-splitter', () => ({
   LangChainCodeSplitter: vi.fn().mockImplementation(() => ({
@@ -211,6 +212,21 @@ describe('Context', () => {
   })
 
   describe('hasIndex', () => {
+    beforeEach(() => {
+      // Stub fs.promises.access to succeed for test paths
+      const originalAccess = (fs as any).promises?.access || fs.access;
+      vi.spyOn(fs.promises, 'access').mockImplementation(async (p: any) => {
+        const pathStr = String(p);
+        if (pathStr.startsWith('/test/')) return;
+        // Delegate to original for real paths
+        return originalAccess(p as any);
+      });
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
     it('should return true when collection exists', async () => {
       const codebasePath = '/test/project'
       const collectionName = context.getCollectionName(codebasePath)

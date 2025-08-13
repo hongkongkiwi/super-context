@@ -3,62 +3,16 @@ import { PineconeVectorDatabase } from '@core/vectordb/pinecone-vectordb'
 import { ChromaVectorDatabase } from '@core/vectordb/chroma-vectordb'
 import { VectorDocument, VectorSearchResult } from '@core/vectordb/types'
 
-// Mock external dependencies
-vi.mock('@pinecone-database/pinecone', () => ({
-  Pinecone: vi.fn().mockImplementation(() => ({
-    Index: vi.fn().mockImplementation(() => ({
-      upsert: vi.fn().mockResolvedValue({}),
-      query: vi.fn().mockResolvedValue({
-        matches: [
-          { id: 'doc1', score: 0.95, values: [], metadata: {} },
-          { id: 'doc2', score: 0.87, values: [], metadata: {} }
-        ]
-      }),
-      deleteAll: vi.fn().mockResolvedValue({}),
-      describeIndexStats: vi.fn().mockResolvedValue({
-        totalVectorCount: 100,
-        dimension: 1536
-      })
-    })),
-    createIndex: vi.fn().mockResolvedValue({}),
-    deleteIndex: vi.fn().mockResolvedValue({}),
-    listIndexes: vi.fn().mockResolvedValue({
-      indexes: [{ name: 'test-index', dimension: 1536 }]
-    })
-  }))
-}))
+// Mock external dependencies using local stubs via module aliases
+vi.mock('@pinecone-database/pinecone', async () => {
+  const { Pinecone } = await import('../../stubs/pinecone')
+  return { Pinecone }
+})
 
-vi.mock('chromadb', () => ({
-  ChromaApi: vi.fn().mockImplementation(() => ({
-    createCollection: vi.fn().mockResolvedValue({
-      id: 'test-collection',
-      name: 'test-collection',
-      add: vi.fn().mockResolvedValue({}),
-      query: vi.fn().mockResolvedValue({
-        ids: [['doc1', 'doc2']],
-        distances: [[0.1, 0.2]],
-        metadatas: [[{ path: '/test1.js' }, { path: '/test2.js' }]],
-        documents: [['content1', 'content2']]
-      }),
-      delete: vi.fn().mockResolvedValue({}),
-      count: vi.fn().mockResolvedValue(100)
-    }),
-    deleteCollection: vi.fn().mockResolvedValue({}),
-    listCollections: vi.fn().mockResolvedValue([
-      { name: 'test-collection' }
-    ]),
-    getCollection: vi.fn().mockResolvedValue({
-      name: 'test-collection',
-      add: vi.fn().mockResolvedValue({}),
-      query: vi.fn().mockResolvedValue({
-        ids: [['doc1']],
-        distances: [[0.1]],
-        metadatas: [[{ path: '/test.js' }]],
-        documents: [['test content']]
-      })
-    })
-  }))
-}))
+vi.mock('chromadb', async () => {
+  const { ChromaApi } = await import('../../stubs/chromadb')
+  return { ChromaApi }
+})
 
 describe('Concrete VectorDB Implementations', () => {
   describe('PineconeVectorDatabase', () => {
@@ -133,7 +87,7 @@ describe('Concrete VectorDB Implementations', () => {
     })
 
     it('should handle errors gracefully', async () => {
-      const mockPinecone = vi.mocked(require('@pinecone-database/pinecone').Pinecone)
+      const mockPinecone = vi.mocked((await import('@pinecone-database/pinecone')).Pinecone as any)
       mockPinecone.mockImplementation(() => ({
         Index: () => ({
           query: vi.fn().mockRejectedValue(new Error('Pinecone API error'))
@@ -157,7 +111,8 @@ describe('Concrete VectorDB Implementations', () => {
     beforeEach(() => {
       vectorDB = new ChromaVectorDatabase({
         host: 'localhost',
-        port: 8000
+        port: 8000,
+        collectionName: 'test-collection'
       })
     })
 
@@ -233,7 +188,7 @@ describe('Concrete VectorDB Implementations', () => {
     })
 
     it('should handle connection errors', async () => {
-      const mockChroma = vi.mocked(require('chromadb').ChromaApi)
+      const mockChroma = vi.mocked((await import('chromadb')).ChromaApi as any)
       mockChroma.mockImplementation(() => ({
         createCollection: vi.fn().mockRejectedValue(new Error('Connection refused'))
       }))
@@ -261,7 +216,8 @@ describe('Concrete VectorDB Implementations', () => {
         name: 'ChromaVectorDatabase', 
         create: () => new ChromaVectorDatabase({
           host: 'localhost',
-          port: 8000
+          port: 8000,
+          collectionName: 'test-collection'
         })
       }
     ]
@@ -285,14 +241,14 @@ describe('Concrete VectorDB Implementations', () => {
         it('should handle empty search results', async () => {
           // Mock empty results
           if (name === 'PineconeVectorDatabase') {
-            const mockPinecone = vi.mocked(require('@pinecone-database/pinecone').Pinecone)
+            const mockPinecone = vi.mocked((await import('@pinecone-database/pinecone')).Pinecone as any)
             mockPinecone.mockImplementation(() => ({
               Index: () => ({
                 query: vi.fn().mockResolvedValue({ matches: [] })
               })
             }))
           } else if (name === 'ChromaVectorDatabase') {
-            const mockChroma = vi.mocked(require('chromadb').ChromaApi)
+            const mockChroma = vi.mocked((await import('chromadb')).ChromaApi as any)
             mockChroma.mockImplementation(() => ({
               getCollection: vi.fn().mockResolvedValue({
                 query: vi.fn().mockResolvedValue({

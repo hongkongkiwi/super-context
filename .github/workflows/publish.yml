@@ -1,0 +1,126 @@
+name: 📦 Publish Packages
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - '.changeset/**'
+      - 'packages/**'
+  workflow_dispatch:
+    inputs:
+      registry:
+        description: 'Registry to publish to'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+          - npm
+          - jsr
+          - both
+
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish-npm:
+    if: github.event_name == 'workflow_dispatch' && (github.event.inputs.registry == 'npm' || github.event.inputs.registry == 'both') || github.event_name == 'push'
+    name: 📦 Publish to NPM
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write # For provenance
+    
+    steps:
+      - name: 🛒 Checkout
+        uses: actions/checkout@v4
+        with:
+          # Need full history for changesets
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+          run_install: false
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: 📦 Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🔨 Build packages
+        run: pnpm build
+
+      - name: ✅ Validate packages
+        run: pnpm validate:packages
+
+      - name: 🔍 Check for changes
+        id: changeset-check
+        run: |
+          if [ -n "$(ls -A .changeset/*.md 2>/dev/null | grep -v README)" ]; then
+            echo "has-changesets=true" >> $GITHUB_OUTPUT
+          else
+            echo "has-changesets=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 📦 Create release PR or publish packages
+        if: steps.changeset-check.outputs.has-changesets == 'true'
+        uses: changesets/action@v1
+        with:
+          publish: pnpm changeset:publish
+          commit: 'chore: release packages'
+          title: 'chore: release packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-jsr:
+    if: github.event_name == 'workflow_dispatch' && (github.event.inputs.registry == 'jsr' || github.event.inputs.registry == 'both')
+    name: 📦 Publish to JSR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # For JSR provenance
+    
+    steps:
+      - name: 🛒 Checkout
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+          run_install: false
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: 📦 Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🔨 Build packages (if needed for JSR)
+        run: pnpm typecheck
+
+      - name: 📦 Publish Core to JSR
+        run: |
+          cd packages/core
+          pnpm dlx jsr publish --allow-dirty
+        continue-on-error: true
+
+      - name: 📦 Publish MCP to JSR  
+        run: |
+          cd packages/mcp
+          pnpm dlx jsr publish --allow-dirty
+        continue-on-error: true

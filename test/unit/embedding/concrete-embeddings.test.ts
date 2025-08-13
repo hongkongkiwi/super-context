@@ -4,33 +4,7 @@ import { HuggingFaceEmbedding } from '@core/embedding/huggingface-embedding'
 import { VoyageAIEmbedding } from '@core/embedding/voyageai-embedding'
 
 // Mock external dependencies
-vi.mock('openai', () => ({
-  default: vi.fn().mockImplementation(() => ({
-    embeddings: {
-      create: vi.fn().mockResolvedValue({
-        data: [
-          { embedding: new Array(1536).fill(0).map(() => Math.random()) }
-        ]
-      })
-    }
-  }))
-}))
-
-vi.mock('@huggingface/inference', () => ({
-  HfInference: vi.fn().mockImplementation(() => ({
-    featureExtraction: vi.fn().mockResolvedValue([
-      new Array(384).fill(0).map(() => Math.random())
-    ])
-  }))
-}))
-
-vi.mock('voyageai', () => ({
-  VoyageAIClient: vi.fn().mockImplementation(() => ({
-    embed: vi.fn().mockResolvedValue({
-      embeddings: [new Array(1024).fill(0).map(() => Math.random())]
-    })
-  }))
-}))
+// SDKs are aliased to stubs in vitest.config.ts; leave per-test mocks out to avoid conflicts
 
 describe('Concrete Embedding Implementations', () => {
   describe('OpenAIEmbedding', () => {
@@ -135,7 +109,7 @@ describe('Concrete Embedding Implementations', () => {
     beforeEach(() => {
       embedding = new VoyageAIEmbedding({
         apiKey: 'test-key',
-        model: 'voyage-large-2'
+        model: 'voyage-3'
       })
     })
 
@@ -185,11 +159,9 @@ describe('Concrete Embedding Implementations', () => {
       })
 
       // Mock the OpenAI client to throw an error
-      const mockOpenAI = vi.mocked(require('openai').default)
-      mockOpenAI.mockImplementation(() => ({
-        embeddings: {
-          create: vi.fn().mockRejectedValue(new Error('API key invalid'))
-        }
+      const { default: OpenAI } = await import('openai')
+      ;(OpenAI as any).mockImplementation(() => ({
+        embeddings: { create: vi.fn().mockRejectedValue(new Error('API key invalid')) }
       }))
 
       await expect(failingEmbedding.embed('test')).rejects.toThrow()
@@ -202,8 +174,8 @@ describe('Concrete Embedding Implementations', () => {
       })
 
       // Mock the HF client to throw an error
-      const mockHF = vi.mocked(require('@huggingface/inference').HfInference)
-      mockHF.mockImplementation(() => ({
+      const { HfInference } = await import('@huggingface/inference')
+      ;(HfInference as any).mockImplementation(() => ({
         featureExtraction: vi.fn().mockRejectedValue(new Error('Model not found'))
       }))
 
@@ -217,8 +189,8 @@ describe('Concrete Embedding Implementations', () => {
       })
 
       // Mock the Voyage client to throw an error
-      const mockVoyage = vi.mocked(require('voyageai').VoyageAIClient)
-      mockVoyage.mockImplementation(() => ({
+      const { VoyageAIClient } = await import('voyageai')
+      ;(VoyageAIClient as any).mockImplementation(() => ({
         embed: vi.fn().mockRejectedValue(new Error('Unauthorized'))
       }))
 

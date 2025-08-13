@@ -36,7 +36,13 @@ export default defineConfig({
     alias: {
       '@': resolve(__dirname, './packages/core/src'),
       '@core': resolve(__dirname, './packages/core/src'),
-      '@mcp': resolve(__dirname, './packages/mcp/src')
+      '@mcp': resolve(__dirname, './packages/mcp/src'),
+      // Test-time aliases for external SDKs to allow mocking without installs
+      '@pinecone-database/pinecone': resolve(__dirname, './test/stubs/pinecone.ts'),
+      'chromadb': resolve(__dirname, './test/stubs/chromadb.ts'),
+      'openai': resolve(__dirname, './test/stubs/openai.ts'),
+      '@huggingface/inference': resolve(__dirname, './test/stubs/huggingface.ts'),
+      'voyageai': resolve(__dirname, './test/stubs/voyageai.ts')
     }
   }
 })

@@ -1,5 +1,7 @@
-import OpenAI from 'openai';
 import { Embedding, EmbeddingVector, EmbeddingOptions } from './base-embedding';
+
+// Lazy module holder to allow Vitest mocks to apply before import
+let OpenAIImport: any | null = null;
 
 export interface OpenAIEmbeddingConfig extends EmbeddingOptions {
     model: string;
@@ -8,7 +10,7 @@ export interface OpenAIEmbeddingConfig extends EmbeddingOptions {
 }
 
 export class OpenAIEmbedding extends Embedding {
-    private client: OpenAI;
+    private client: any;
     private config: OpenAIEmbeddingConfig;
     private dimension: number = 1536; // Default dimension for text-embedding-3-small
     protected maxTokens: number = 8192; // Maximum tokens for OpenAI embedding models
@@ -16,10 +18,24 @@ export class OpenAIEmbedding extends Embedding {
     constructor(config: OpenAIEmbeddingConfig) {
         super(config);
         this.config = config;
-        this.client = new OpenAI({
-            apiKey: config.apiKey,
-            baseURL: config.baseURL,
+        if (!config.apiKey || config.apiKey.trim() === '') {
+            throw new Error('OpenAI API key is required');
+        }
+        // Defer client creation to runtime to respect test-time mocks
+        this.client = null;
+    }
+
+    private async getClient(): Promise<any> {
+        if (this.client) return this.client;
+        if (!OpenAIImport) {
+            const mod = await import('openai');
+            OpenAIImport = (mod as any).default || mod;
+        }
+        this.client = new OpenAIImport({
+            apiKey: this.config.apiKey,
+            baseURL: this.config.baseURL,
         });
+        return this.client;
     }
 
     async detectDimension(testText: string = "test"): Promise<number> {
@@ -34,7 +50,8 @@ export class OpenAIEmbedding extends Embedding {
         // For custom models, make API call to detect dimension
         try {
             const processedText = this.preprocessText(testText);
-            const response = await this.client.embeddings.create({
+            const client = await this.getClient();
+            const response = await client.embeddings.create({
                 model: model,
                 input: processedText,
                 encoding_format: 'float',
@@ -65,7 +82,8 @@ export class OpenAIEmbedding extends Embedding {
         }
 
         try {
-            const response = await this.client.embeddings.create({
+            const client = await this.getClient();
+            const response = await client.embeddings.create({
                 model: model,
                 input: processedText,
                 encoding_format: 'float',
@@ -96,15 +114,22 @@ export class OpenAIEmbedding extends Embedding {
         }
 
         try {
-            const response = await this.client.embeddings.create({
+            const client = await this.getClient();
+            const response = await client.embeddings.create({
                 model: model,
                 input: processedTexts,
                 encoding_format: 'float',
             });
 
-            this.dimension = response.data[0].embedding.length;
+            // Response may be single object or array; normalize to array of same length as inputs
+            const dataArray: any[] = Array.isArray(response.data) ? response.data : [response.data];
+            const normalized = (dataArray.length === processedTexts.length)
+                ? dataArray
+                : processedTexts.map((_t: string, i: number) => dataArray[i] || dataArray[0]);
 
-            return response.data.map((item) => ({
+            this.dimension = normalized[0].embedding.length;
+
+            return normalized.map((item: any) => ({
                 vector: item.embedding,
                 dimension: this.dimension
             }));
@@ -119,7 +144,7 @@ export class OpenAIEmbedding extends Embedding {
     }
 
     getProvider(): string {
-        return 'OpenAI';
+        return 'openai';
     }
 
     /**
@@ -139,8 +164,8 @@ export class OpenAIEmbedding extends Embedding {
     /**
      * Get client instance (for advanced usage)
      */
-    getClient(): OpenAI {
-        return this.client;
+    async getClientInstance(): Promise<any> {
+        return await this.getClient();
     }
 
     /**

@@ -9,6 +9,12 @@ export interface CodeChunk {
         chunkIndex?: number;
         isStreamed?: boolean;
         isFinal?: boolean;
+        nodeType?: string;
+        hasContext?: boolean;
+        description?: string;
+        isNotebook?: boolean;
+        cellNumber?: number;
+        [key: string]: any; // Allow additional properties
     };
 }
 

@@ -1,570 +1,515 @@
-import { VectorDatabase, VectorDocument, VectorSearchResult, SearchOptions, HybridSearchResult, HybridSearchRequest } from './types';
+/**
+ * SemaDB Vector Database Implementation
+ * Uses HTTP API since no official SDK exists
+ */
 
-// SemaDB client - install with: npm install semadb-client
-let SemaDB: any = null;
-try {
-    SemaDB = require('semadb-client');
-} catch (error) {
-    console.warn('[SEMADB] semadb-client not available. Please install it with: npm install semadb-client');
-}
+import { 
+    VectorDocument, 
+    SearchOptions, 
+    VectorSearchResult, 
+    SimpleVectorDatabase,
+    VectorDatabaseHealth,
+    VectorDatabaseMetrics,
+    HybridSearchRequest,
+    HybridSearchResult
+} from './types';
 
 export interface SemaDBConfig {
-    // Connection configuration
-    apiKey: string;
-    endpoint?: string;
-    // Collection configuration
-    collectionName: string;
-    // Vector configuration
-    dimension: number;
-    metric?: 'cosine' | 'euclidean' | 'dot';
-    // Index configuration
-    indexType?: 'hnsw' | 'ivf' | 'flat';
-    // HNSW parameters
-    m?: number; // Number of connections for HNSW
-    efConstruction?: number; // Size of the dynamic candidate list for HNSW construction
-    efSearch?: number; // Size of the dynamic candidate list for HNSW search
-    // Performance settings
-    timeout?: number;
-    retries?: number;
-    batchSize?: number;
+    apiUrl?: string;
+    apiKey?: string;
+    userId?: string;
+    userPlan?: string;
+    useMessagePack?: boolean;
+    searchSize?: number;
+    degreeBound?: number;
+    alpha?: number;
+    distanceMetric?: 'cosine' | 'euclidean' | 'dot';
 }
 
-export class SemaDBVectorDatabase implements VectorDatabase {
+export interface SemaDBCollection {
+    id: string;
+    indexSchema: {
+        vector: {
+            type: 'vectorVamana';
+            vectorVamana: {
+                vectorSize: number;
+                distanceMetric: string;
+                searchSize: number;
+                degreeBound: number;
+                alpha: number;
+            };
+        };
+    };
+}
+
+export interface SemaDBPoint {
+    _id?: string;
+    vector: number[];
+    content?: string;
+    source?: string;
+    relativePath?: string;
+    startLine?: number;
+    endLine?: number;
+    fileExtension?: string;
+    metadata?: Record<string, any>;
+    [key: string]: any;
+}
+
+export interface SemaDBSearchQuery {
+    query: {
+        property: string;
+        vectorVamana: {
+            vector: number[];
+            operator: 'near';
+            searchSize: number;
+            limit: number;
+        };
+    };
+    select?: string[];
+    limit: number;
+    filter?: Record<string, any>;
+}
+
+/**
+ * SemaDB vector database implementation using REST API
+ */
+export class SemaDBVectorDatabase implements SimpleVectorDatabase {
     private config: SemaDBConfig;
-    private client: any = null;
-    private collection: any = null;
-    private isInitialized: boolean = false;
+    private baseUrl: string;
+    private headers: Record<string, string>;
+    private collectionName: string = 'default';
+    private vectorSize: number = 0;
 
     constructor(config: SemaDBConfig) {
-        if (!SemaDB) {
-            throw new Error('semadb-client is not available. Please install it with: npm install semadb-client');
-        }
-
         this.config = {
-            endpoint: 'https://api.semadb.com',
-            metric: 'cosine',
-            indexType: 'hnsw',
-            m: 16,
-            efConstruction: 200,
-            efSearch: 100,
-            timeout: 60000,
-            retries: 3,
-            batchSize: 100,
+            searchSize: 75,
+            degreeBound: 64,
+            alpha: 1.2,
+            distanceMetric: 'cosine',
+            useMessagePack: false,
             ...config
         };
 
-        if (!this.config.apiKey) {
-            throw new Error('SemaDB API key is required');
-        }
-
-        if (!this.config.collectionName) {
-            throw new Error('SemaDB collection name is required');
-        }
-
-        if (!this.config.dimension || this.config.dimension <= 0) {
-            throw new Error('SemaDB vector dimension must be a positive integer');
+        // Set base URL - use RapidAPI if API key provided, otherwise local
+        if (config.apiKey) {
+            this.baseUrl = 'https://semadb.p.rapidapi.com/v2';
+            this.headers = {
+                'X-RapidAPI-Key': config.apiKey,
+                'X-RapidAPI-Host': 'semadb.p.rapidapi.com',
+                'Content-Type': 'application/json'
+            };
+        } else {
+            this.baseUrl = config.apiUrl || 'http://localhost:8081/v2';
+            this.headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            // Add user headers for self-hosted
+            if (config.userId) {
+                this.headers['X-User-Id'] = config.userId;
+            }
+            if (config.userPlan) {
+                this.headers['X-User-Plan'] = config.userPlan;
+            }
         }
     }
 
+    /**
+     * Connect to database (no-op for HTTP API)
+     */
     async connect(): Promise<void> {
-        if (this.isInitialized) {
-            return;
-        }
+        // HTTP API doesn't require connection
+        console.log('SemaDB HTTP connection established');
+    }
 
-        console.log(`[SEMADB] Connecting to SemaDB at ${this.config.endpoint}...`);
-        
+    /**
+     * Disconnect from database (no-op for HTTP API)
+     */
+    async disconnect(): Promise<void> {
+        // HTTP API doesn't require closing
+        console.log('SemaDB HTTP connection closed');
+    }
+
+    /**
+     * Create a collection
+     */
+    async createCollection(name: string, dimension: number, description?: string): Promise<void> {
+        this.collectionName = name;
+        this.vectorSize = dimension;
+
+        const collection: SemaDBCollection = {
+            id: name,
+            indexSchema: {
+                vector: {
+                    type: 'vectorVamana',
+                    vectorVamana: {
+                        vectorSize: dimension,
+                        distanceMetric: this.config.distanceMetric!,
+                        searchSize: this.config.searchSize!,
+                        degreeBound: this.config.degreeBound!,
+                        alpha: this.config.alpha!
+                    }
+                }
+            }
+        };
+
+        const response = await fetch(`${this.baseUrl}/collections`, {
+            method: 'POST',
+            headers: this.headers,
+            body: JSON.stringify(collection)
+        });
+
+        if (!response.ok && response.status !== 409) { // 409 = already exists
+            const error = await response.text();
+            throw new Error(`Failed to create collection: ${error}`);
+        }
+    }
+
+    /**
+     * Drop a collection
+     */
+    async dropCollection(name: string): Promise<void> {
+        const response = await fetch(`${this.baseUrl}/collections/${name}`, {
+            method: 'DELETE',
+            headers: this.headers
+        });
+
+        if (!response.ok && response.status !== 404) {
+            const error = await response.text();
+            throw new Error(`Failed to drop collection: ${error}`);
+        }
+    }
+
+    /**
+     * Check if collection exists
+     */
+    async hasCollection(name: string): Promise<boolean> {
         try {
-            // Create SemaDB client
-            this.client = new SemaDB({
-                apiKey: this.config.apiKey,
-                endpoint: this.config.endpoint,
-                timeout: this.config.timeout,
-                retries: this.config.retries
+            const response = await fetch(`${this.baseUrl}/collections/${name}`, {
+                method: 'GET',
+                headers: this.headers
             });
 
-            // Test connection by getting server info
-            const serverInfo = await this.client.getInfo();
-            console.log(`[SEMADB] Connected to SemaDB version: ${serverInfo.version}`);
-
-            this.isInitialized = true;
-            console.log(`[SEMADB] ✅ Successfully connected to SemaDB`);
+            return response.status === 200;
         } catch (error) {
-            console.error(`[SEMADB] Failed to connect: ${error}`);
-            throw error;
-        }
-    }
-
-    async disconnect(): Promise<void> {
-        if (this.isInitialized) {
-            // SemaDB client doesn't need explicit disconnection
-            this.client = null;
-            this.collection = null;
-            this.isInitialized = false;
-            console.log(`[SEMADB] Disconnected from database`);
-        }
-    }
-
-    async createCollection(name: string, dimension: number, description?: string): Promise<void> {
-        if (!this.isInitialized) {
-            await this.connect();
-        }
-
-        console.log(`[SEMADB] Creating collection "${name}" with dimension ${dimension}...`);
-
-        try {
-            // Check if collection already exists
-            const collections = await this.client.listCollections();
-            const existingCollection = collections.find((col: any) => col.name === name);
-            
-            if (existingCollection) {
-                console.log(`[SEMADB] Collection "${name}" already exists`);
-                this.collection = await this.client.getCollection(name);
-                return;
-            }
-
-            // Create collection with index configuration
-            const collectionConfig = {
-                name,
-                dimension,
-                description: description || `Vector collection for ${name}`,
-                metric: this.config.metric,
-                indexConfig: {
-                    type: this.config.indexType,
-                    ...(this.config.indexType === 'hnsw' && {
-                        m: this.config.m,
-                        efConstruction: this.config.efConstruction
-                    })
-                }
-            };
-
-            this.collection = await this.client.createCollection(collectionConfig);
-            console.log(`[SEMADB] ✅ Collection "${name}" created successfully`);
-        } catch (error) {
-            console.error(`[SEMADB] Failed to create collection "${name}": ${error}`);
-            throw error;
-        }
-    }
-
-    async hasCollection(name: string): Promise<boolean> {
-        if (!this.isInitialized) {
-            await this.connect();
-        }
-
-        try {
-            const collections = await this.client.listCollections();
-            return collections.some((col: any) => col.name === name);
-        } catch (error) {
-            console.error(`[SEMADB] Failed to check collection "${name}": ${error}`);
             return false;
         }
     }
 
-    async dropCollection(name: string): Promise<void> {
-        if (!this.isInitialized) {
-            await this.connect();
-        }
-
-        console.log(`[SEMADB] Dropping collection "${name}"...`);
-
-        try {
-            await this.client.deleteCollection(name);
-            
-            if (this.collection && this.collection.name === name) {
-                this.collection = null;
-            }
-            
-            console.log(`[SEMADB] ✅ Collection "${name}" dropped successfully`);
-        } catch (error) {
-            console.error(`[SEMADB] Failed to drop collection "${name}": ${error}`);
-            throw error;
-        }
-    }
-
+    /**
+     * List collections
+     */
     async listCollections(): Promise<string[]> {
-        if (!this.isInitialized) {
-            await this.connect();
-        }
+        const response = await fetch(`${this.baseUrl}/collections`, {
+            method: 'GET',
+            headers: this.headers
+        });
 
-        try {
-            const collections = await this.client.listCollections();
-            return collections.map((col: any) => col.name);
-        } catch (error) {
-            console.error(`[SEMADB] Failed to list collections: ${error}`);
+        if (!response.ok) {
             return [];
         }
+
+        const result = await response.json() as any;
+        return (result.collections || []).map((c: any) => c.id || c.name);
     }
 
-    private async ensureCollection(): Promise<void> {
-        if (!this.collection) {
-            try {
-                this.collection = await this.client.getCollection(this.config.collectionName);
-            } catch (error) {
-                throw new Error(`Collection "${this.config.collectionName}" does not exist. Create it first.`);
-            }
-        }
-    }
-
+    /**
+     * Insert documents into the database
+     */
     async insertDocuments(documents: VectorDocument[]): Promise<void> {
-        if (!this.isInitialized) {
-            await this.connect();
-        }
+        if (documents.length === 0) return;
 
-        await this.ensureCollection();
+        const points: SemaDBPoint[] = documents.map(doc => ({
+            _id: doc.id,
+            vector: doc.vector,
+            content: doc.content,
+            source: doc.source,
+            relativePath: doc.relativePath,
+            startLine: doc.startLine,
+            endLine: doc.endLine,
+            fileExtension: doc.fileExtension,
+            metadata: doc.metadata || {}
+        }));
 
-        if (documents.length === 0) {
-            return;
-        }
-
-        console.log(`[SEMADB] Inserting ${documents.length} documents...`);
-
-        try {
-            // Prepare documents for SemaDB format
-            const semaDbDocuments = documents.map(doc => ({
-                id: doc.id || `doc_${Date.now()}_${Math.random()}`,
-                vector: doc.vector,
-                metadata: {
-                    content: doc.content,
-                    source: doc.source,
-                    relativePath: doc.relativePath,
-                    startLine: doc.startLine,
-                    endLine: doc.endLine,
-                    fileExtension: doc.fileExtension,
-                    ...(doc.metadata || {})
-                }
-            }));
-
-            // Insert in batches
-            const batchSize = this.config.batchSize!;
-            
-            for (let i = 0; i < semaDbDocuments.length; i += batchSize) {
-                const batch = semaDbDocuments.slice(i, i + batchSize);
-                
-                await this.collection.insert(batch);
-                
-                console.log(`[SEMADB] Inserted batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(semaDbDocuments.length / batchSize)}`);
-                
-                // Small delay between batches to avoid rate limits
-                if (i + batchSize < semaDbDocuments.length) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                }
-            }
-
-            console.log(`[SEMADB] ✅ Successfully inserted ${documents.length} documents`);
-        } catch (error) {
-            console.error(`[SEMADB] Failed to insert documents: ${error}`);
-            throw error;
-        }
-    }
-
-    async search(query: number[], options: SearchOptions = {}): Promise<VectorSearchResult[]> {
-        if (!this.isInitialized) {
-            await this.connect();
-        }
-
-        await this.ensureCollection();
-
-        const limit = options.limit || options.topK || 10;
-        
-        try {
-            console.log(`[SEMADB] Searching for top ${limit} similar vectors...`);
-            
-            const searchParams: any = {
-                vector: query,
-                limit: limit,
-                efSearch: this.config.efSearch
-            };
-
-            // Add metadata filter if provided
-            if (options.filter) {
-                searchParams.filter = this.convertFilter(options.filter);
-            }
-
-            // Add score threshold if provided
-            if (options.threshold) {
-                searchParams.threshold = options.threshold;
-            }
-
-            const response = await this.collection.search(searchParams);
-
-            const searchResults: VectorSearchResult[] = response.results.map((result: any) => {
-                const metadata = result.metadata || {};
-                
-                const document: VectorDocument = {
-                    id: result.id,
-                    content: metadata.content || '',
-                    source: metadata.source || '',
-                    relativePath: metadata.relativePath || '',
-                    startLine: metadata.startLine || 0,
-                    endLine: metadata.endLine || 0,
-                    fileExtension: metadata.fileExtension || '',
-                    vector: result.vector || [],
-                    metadata: {
-                        ...metadata,
-                        content: undefined,
-                        source: undefined,
-                        relativePath: undefined,
-                        startLine: undefined,
-                        endLine: undefined,
-                        fileExtension: undefined
-                    }
-                };
-
-                return {
-                    document,
-                    score: result.score,
-                    metadata: {
-                        semadb_id: result.id,
-                        distance: result.distance || (1.0 - result.score)
-                    }
-                };
-            });
-
-            console.log(`[SEMADB] Found ${searchResults.length} results`);
-            return searchResults;
-        } catch (error) {
-            console.error(`[SEMADB] Search failed: ${error}`);
-            throw error;
-        }
-    }
-
-    private convertFilter(filter: Record<string, any>): any {
-        // Convert generic filter to SemaDB filter format
-        const semaDbFilter: any = {};
-
-        for (const [key, value] of Object.entries(filter)) {
-            if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-                semaDbFilter[key] = { eq: value };
-            } else if (Array.isArray(value)) {
-                semaDbFilter[key] = { in: value };
-            } else if (typeof value === 'object' && value !== null) {
-                // Handle range queries
-                const rangeFilter: any = {};
-                if (value.gte !== undefined) rangeFilter.gte = value.gte;
-                if (value.gt !== undefined) rangeFilter.gt = value.gt;
-                if (value.lte !== undefined) rangeFilter.lte = value.lte;
-                if (value.lt !== undefined) rangeFilter.lt = value.lt;
-                if (Object.keys(rangeFilter).length > 0) {
-                    semaDbFilter[key] = rangeFilter;
-                }
-            }
-        }
-
-        return semaDbFilter;
-    }
-
-    async hybridSearch(request: HybridSearchRequest): Promise<HybridSearchResult> {
-        if (!this.isInitialized) {
-            await this.connect();
-        }
-
-        await this.ensureCollection();
-
-        console.log(`[SEMADB] Performing hybrid search...`);
-
-        try {
-            // SemaDB hybrid search with text and vector
-            const searchParams: any = {
-                limit: request.limit || 10,
-                efSearch: this.config.efSearch
-            };
-
-            if (request.filter) {
-                searchParams.filter = this.convertFilter(request.filter);
-            }
-
-            let searchResults: VectorSearchResult[] = [];
-
-            if (request.query && request.query.trim()) {
-                // Hybrid search with text query and vector
-                searchParams.vector = request.vector;
-                searchParams.query = request.query;
-                searchParams.hybrid = {
-                    alpha: 0.5 // Balance between vector and text search
-                };
-                
-                const response = await this.collection.hybridSearch(searchParams);
-                searchResults = this.processSearchResponse(response);
-            } else {
-                // Vector search only
-                searchParams.vector = request.vector;
-                const response = await this.collection.search(searchParams);
-                searchResults = this.processSearchResponse(response);
-            }
-
-            console.log(`[SEMADB] Hybrid search found ${searchResults.length} results`);
-            
-            return {
-                results: searchResults,
-                metadata: {
-                    searchType: request.query && request.query.trim() ? 'hybrid' : 'vector_only',
-                    alpha: 0.5
-                }
-            };
-        } catch (error) {
-            console.error(`[SEMADB] Hybrid search failed: ${error}`);
-            
-            // Fallback to vector search
-            const vectorResults = await this.search(request.vector, {
-                limit: request.limit,
-                filter: request.filter
-            });
-
-            return {
-                results: vectorResults,
-                metadata: {
-                    searchType: 'vector_only',
-                    message: 'Hybrid search failed, performed vector search only'
-                }
-            };
-        }
-    }
-
-    private processSearchResponse(response: any): VectorSearchResult[] {
-        return response.results.map((result: any) => {
-            const metadata = result.metadata || {};
-            
-            const document: VectorDocument = {
-                id: result.id,
-                content: metadata.content || '',
-                source: metadata.source || '',
-                relativePath: metadata.relativePath || '',
-                startLine: metadata.startLine || 0,
-                endLine: metadata.endLine || 0,
-                fileExtension: metadata.fileExtension || '',
-                vector: result.vector || [],
-                metadata: {
-                    ...metadata,
-                    content: undefined,
-                    source: undefined,
-                    relativePath: undefined,
-                    startLine: undefined,
-                    endLine: undefined,
-                    fileExtension: undefined
-                }
-            };
-
-            return {
-                document,
-                score: result.score,
-                metadata: {
-                    semadb_id: result.id,
-                    distance: result.distance || (1.0 - result.score)
-                }
-            };
+        const response = await fetch(`${this.baseUrl}/collections/${this.collectionName}/points`, {
+            method: 'POST',
+            headers: this.headers,
+            body: JSON.stringify({ points })
         });
+
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`Failed to insert documents: ${error}`);
+        }
     }
 
-    async deleteDocuments(filter: Record<string, any>): Promise<number> {
-        if (!this.isInitialized) {
-            await this.connect();
+    /**
+     * Search for similar vectors
+     */
+    async search(
+        query: number[],
+        options: SearchOptions = {}
+    ): Promise<VectorSearchResult[]> {
+        const limit = options.topK || options.limit || 10;
+
+        const searchQuery: SemaDBSearchQuery = {
+            query: {
+                property: 'vector',
+                vectorVamana: {
+                    vector: query,
+                    operator: 'near',
+                    searchSize: this.config.searchSize!,
+                    limit: limit
+                }
+            },
+            select: ['content', 'source', 'relativePath', 'startLine', 'endLine', 'fileExtension', 'metadata'],
+            limit: limit
+        };
+
+        // Add filters if provided
+        if (options.filter) {
+            searchQuery.filter = options.filter;
         }
 
-        await this.ensureCollection();
+        const response = await fetch(`${this.baseUrl}/collections/${this.collectionName}/points/search`, {
+            method: 'POST',
+            headers: this.headers,
+            body: JSON.stringify(searchQuery)
+        });
 
-        console.log(`[SEMADB] Deleting documents with filter:`, filter);
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`Search failed: ${error}`);
+        }
 
-        try {
-            if (filter.id) {
-                // Delete by ID(s)
-                const ids = Array.isArray(filter.id) ? filter.id : [filter.id];
-                
-                const result = await this.collection.delete({ ids });
-                
-                console.log(`[SEMADB] ✅ Deleted ${result.deletedCount || ids.length} documents by ID`);
-                return result.deletedCount || ids.length;
-            } else {
-                // Delete by metadata filter
-                const semaDbFilter = this.convertFilter(filter);
-                
-                const result = await this.collection.delete({ filter: semaDbFilter });
-                
-                console.log(`[SEMADB] ✅ Deleted ${result.deletedCount || 0} documents by filter`);
-                return result.deletedCount || 0;
+        const result = await response.json() as any;
+        
+        // Transform results to our format
+        return (result.points || []).map((point: any) => ({
+            document: {
+                id: point._id,
+                vector: point.vector || [],
+                content: point.content || '',
+                source: point.source || '',
+                relativePath: point.relativePath || '',
+                startLine: point.startLine || 0,
+                endLine: point.endLine || 0,
+                fileExtension: point.fileExtension || '',
+                metadata: point.metadata
+            },
+            score: point._distance !== undefined ? (1 - point._distance) : 0,
+            metadata: point.metadata
+        }));
+    }
+
+    /**
+     * Hybrid search implementation
+     */
+    async hybridSearch(request: HybridSearchRequest): Promise<HybridSearchResult> {
+        const limit = request.limit || 10;
+
+        const searchQuery: SemaDBSearchQuery = {
+            query: {
+                property: 'vector',
+                vectorVamana: {
+                    vector: request.vector,
+                    operator: 'near',
+                    searchSize: this.config.searchSize!,
+                    limit: limit
+                }
+            },
+            select: ['content', 'source', 'relativePath', 'startLine', 'endLine', 'fileExtension', 'metadata'],
+            limit: limit,
+            filter: request.filter
+        };
+
+        const response = await fetch(`${this.baseUrl}/collections/${this.collectionName}/points/search`, {
+            method: 'POST',
+            headers: this.headers,
+            body: JSON.stringify(searchQuery)
+        });
+
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`Hybrid search failed: ${error}`);
+        }
+
+        const result = await response.json() as any;
+        
+        const results = (result.points || []).map((point: any) => ({
+            document: {
+                id: point._id,
+                vector: point.vector || [],
+                content: point.content || '',
+                source: point.source || '',
+                relativePath: point.relativePath || '',
+                startLine: point.startLine || 0,
+                endLine: point.endLine || 0,
+                fileExtension: point.fileExtension || '',
+                metadata: point.metadata
+            },
+            score: point._distance !== undefined ? (1 - point._distance) : 0,
+            metadata: point.metadata
+        }));
+
+        return {
+            results,
+            metadata: {
+                totalResults: results.length
             }
-        } catch (error) {
-            console.error(`[SEMADB] Failed to delete documents: ${error}`);
-            throw error;
-        }
+        };
     }
 
-    async clearCollection(): Promise<void> {
-        if (!this.isInitialized) {
-            await this.connect();
-        }
+    /**
+     * Delete documents by filter
+     */
+    async deleteDocuments(filter: Record<string, any>): Promise<number> {
+        // SemaDB doesn't support filter-based deletion directly
+        // We need to search first then delete by IDs
+        const searchQuery = {
+            filter: filter,
+            limit: 1000
+        };
 
-        console.log(`[SEMADB] Clearing all documents from collection "${this.config.collectionName}"...`);
+        const response = await fetch(`${this.baseUrl}/collections/${this.collectionName}/points/search`, {
+            method: 'POST',
+            headers: this.headers,
+            body: JSON.stringify(searchQuery)
+        });
 
-        try {
-            // Delete all documents in the collection
-            const result = await this.collection.deleteAll();
-            
-            console.log(`[SEMADB] ✅ Cleared collection. Deleted ${result.deletedCount || 'all'} documents`);
-        } catch (error) {
-            console.error(`[SEMADB] Failed to clear collection: ${error}`);
-            throw error;
-        }
-    }
-
-    async getDocumentCount(): Promise<number> {
-        if (!this.isInitialized) {
-            await this.connect();
-        }
-
-        await this.ensureCollection();
-
-        try {
-            const stats = await this.collection.getStats();
-            return stats.documentCount || 0;
-        } catch (error) {
-            console.error(`[SEMADB] Failed to get document count: ${error}`);
+        if (!response.ok) {
             return 0;
         }
+
+        const result = await response.json() as any;
+        const ids = (result.points || []).map((p: any) => p._id).filter((id: any) => id);
+        
+        if (ids.length === 0) return 0;
+
+        await this.deleteByIds(ids);
+        return ids.length;
     }
 
-    // SemaDB-specific utility methods
-    async getCollectionInfo(): Promise<any> {
-        if (!this.isInitialized) {
-            await this.connect();
+    /**
+     * Delete vectors by IDs
+     */
+    private async deleteByIds(ids: string[]): Promise<void> {
+        if (ids.length === 0) return;
+
+        // SemaDB doesn't have bulk delete, so we need to delete one by one
+        const deletePromises = ids.map(id => 
+            fetch(`${this.baseUrl}/collections/${this.collectionName}/points/${id}`, {
+                method: 'DELETE',
+                headers: this.headers
+            })
+        );
+
+        const results = await Promise.allSettled(deletePromises);
+        
+        const failed = results.filter(r => r.status === 'rejected');
+        if (failed.length > 0) {
+            console.warn(`Failed to delete ${failed.length} documents`);
         }
+    }
 
-        await this.ensureCollection();
-
+    /**
+     * Clear all vectors from the collection
+     */
+    async clearCollection(): Promise<void> {
+        // Delete and recreate collection
         try {
-            const [stats, schema] = await Promise.all([
-                this.collection.getStats(),
-                this.collection.getSchema()
-            ]);
+            await this.dropCollection(this.collectionName);
+            await this.createCollection(this.collectionName, this.vectorSize);
+        } catch (error) {
+            console.error('Failed to clear collection:', error);
+            throw error;
+        }
+    }
 
+    /**
+     * Get document count
+     */
+    async getDocumentCount(): Promise<number> {
+        const stats = await this.getStats();
+        return stats.count;
+    }
+
+    /**
+     * Get database statistics
+     */
+    private async getStats(): Promise<{ count: number; dimension: number }> {
+        try {
+            const response = await fetch(`${this.baseUrl}/collections/${this.collectionName}`, {
+                method: 'GET',
+                headers: this.headers
+            });
+
+            if (!response.ok) {
+                return { count: 0, dimension: this.vectorSize };
+            }
+
+            const collection = await response.json() as any;
+            
             return {
-                name: this.config.collectionName,
-                dimension: this.config.dimension,
-                documentCount: stats.documentCount,
-                indexType: this.config.indexType,
-                metric: this.config.metric,
-                schema: schema,
-                stats: stats
+                count: collection.pointCount || 0,
+                dimension: collection.indexSchema?.vector?.vectorVamana?.vectorSize || this.vectorSize
             };
         } catch (error) {
-            console.error(`[SEMADB] Failed to get collection info: ${error}`);
-            throw error;
+            console.error('Failed to get stats:', error);
+            return { count: 0, dimension: this.vectorSize };
         }
     }
 
-    async optimizeIndex(): Promise<void> {
-        if (!this.isInitialized) {
-            await this.connect();
-        }
-
-        await this.ensureCollection();
-
-        console.log(`[SEMADB] Optimizing index for collection "${this.config.collectionName}"...`);
-
+    /**
+     * Check database health
+     */
+    async checkHealth(): Promise<VectorDatabaseHealth> {
         try {
-            await this.collection.optimizeIndex();
-            console.log(`[SEMADB] ✅ Index optimization completed`);
-        } catch (error) {
-            console.error(`[SEMADB] Failed to optimize index: ${error}`);
-            throw error;
+            const startTime = Date.now();
+            const response = await fetch(`${this.baseUrl}/collections`, {
+                method: 'GET',
+                headers: this.headers
+            });
+
+            const responseTime = Date.now() - startTime;
+            const status = response.ok ? 'healthy' : 'unhealthy';
+
+            return {
+                status: status as 'healthy' | 'unhealthy',
+                timestamp: new Date().toISOString(),
+                responseTime,
+                metadata: {
+                    httpStatus: response.status,
+                    statusText: response.statusText,
+                    collection: this.collectionName
+                }
+            };
+        } catch (error: any) {
+            return {
+                status: 'unhealthy',
+                timestamp: new Date().toISOString(),
+                responseTime: -1,
+                error: error.message,
+                metadata: { error: error.toString() }
+            };
         }
+    }
+
+    /**
+     * Get database metrics
+     */
+    async getMetrics(): Promise<VectorDatabaseMetrics> {
+        const stats = await this.getStats();
+        const health = await this.checkHealth();
+
+        return {
+            operationsTotal: 0,
+            operationsPerSecond: 0,
+            avgResponseTime: health.responseTime || 0,
+            errorRate: health.status === 'healthy' ? 0.0 : 1.0,
+            connectionCount: 1,
+            memoryUsage: 0,
+            cacheHitRate: 0
+        };
     }
 }

@@ -1,0 +1,34 @@
+{
+    "name": "@hongkongkiwi/super-context-core",
+    "version": "0.1.1",
+    "exports": {
+        ".": "./src/index.ts",
+        "./splitter": "./src/splitter/index.ts",
+        "./embedding": "./src/embedding/index.ts",
+        "./vectordb": "./src/vectordb/index.ts",
+        "./utils": "./src/utils/index.ts",
+        "./git": "./src/git/index.ts",
+        "./search": "./src/search/index.ts"
+    },
+    "publish": {
+        "exclude": [
+            "node_modules",
+            "dist",
+            "coverage",
+            "*.test.ts",
+            "*.spec.ts",
+            "test",
+            "tests",
+            "__tests__",
+            "examples",
+            ".github",
+            ".vscode",
+            ".idea",
+            "*.log",
+            ".DS_Store",
+            "Thumbs.db",
+            "*.tmp",
+            "*.temp"
+        ]
+    }
+}

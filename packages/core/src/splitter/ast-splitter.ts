@@ -30,7 +30,7 @@ export class AstCodeSplitter implements Splitter {
     private chunkSize: number = 2500;
     private chunkOverlap: number = 300;
     private parserPool: ResourcePool<Parser>;
-    private langchainFallback: any; // LangChainCodeSplitter for fallback
+    private langchainFallback: any | null = null; // Lazy-initialized LangChainCodeSplitter for fallback
     private treeCleanupQueue: Set<Parser.Tree> = new Set();
 
     constructor(chunkSize?: number, chunkOverlap?: number) {
@@ -53,9 +53,60 @@ export class AstCodeSplitter implements Splitter {
             5  // Max pool size
         );
 
-        // Initialize fallback splitter
-        const { LangChainCodeSplitter } = require('./langchain-splitter');
-        this.langchainFallback = new LangChainCodeSplitter(chunkSize, chunkOverlap);
+        // Fallback splitter will be lazily imported to avoid circular imports and bundler issues
+        this.langchainFallback = null;
+    }
+
+    /**
+     * Split generic text using the fallback splitter
+     */
+    splitText(text: string): string[] {
+        if (!text) return [];
+        const approximateSize = this.chunkSize;
+        const chunks: string[] = [];
+        for (let i = 0; i < text.length; i += approximateSize) {
+            chunks.push(text.slice(i, Math.min(i + approximateSize, text.length)));
+        }
+        return chunks;
+    }
+
+    private async getFallbackSplitter(): Promise<any> {
+        if (this.langchainFallback) return this.langchainFallback;
+        try {
+            const mod = await import('./langchain-splitter');
+            this.langchainFallback = new (mod as any).LangChainCodeSplitter(this.chunkSize, this.chunkOverlap);
+        } catch (e) {
+            console.warn('Failed to load langchain-splitter, using basic splitter fallback');
+            // If langchain-splitter fails to load, return a basic splitter
+            this.langchainFallback = {
+                split: async (code: string, language: string, filePath?: string) => {
+                    // Basic fallback implementation
+                    const lines = code.split('\n');
+                    const chunks: any[] = [];
+                    let currentChunk = '';
+                    let startLine = 1;
+                    
+                    for (let i = 0; i < lines.length; i++) {
+                        currentChunk += lines[i] + '\n';
+                        if (currentChunk.length > this.chunkSize || i === lines.length - 1) {
+                            chunks.push({
+                                content: currentChunk.trim(),
+                                metadata: {
+                                    startLine,
+                                    endLine: i + 1,
+                                    language,
+                                    filePath
+                                }
+                            });
+                            currentChunk = '';
+                            startLine = i + 2;
+                        }
+                    }
+                    return chunks;
+                }
+            };
+        }
+        return this.langchainFallback;
     }
 
     async split(code: string, language: string, filePath?: string): Promise<CodeChunk[]> {
@@ -63,7 +114,8 @@ export class AstCodeSplitter implements Splitter {
         const langConfig = this.getLanguageConfig(language);
         if (!langConfig) {
             console.log(`📝 Language ${language} not supported by AST, using LangChain splitter for: ${filePath || 'unknown'}`);
-            return await this.langchainFallback.split(code, language, filePath);
+            const fallback = await this.getFallbackSplitter();
+            return await fallback.split(code, language, filePath);
         }
 
         // Use resource pool to get a parser and ensure proper cleanup
@@ -76,8 +128,9 @@ export class AstCodeSplitter implements Splitter {
                 tree = parser.parse(code);
 
                 if (!tree?.rootNode) {
-                    console.warn(`⚠️  Failed to parse AST for ${language}, falling back to LangChain: ${filePath || 'unknown'}`);
-                    return await this.langchainFallback.split(code, language, filePath);
+                console.warn(`⚠️  Failed to parse AST for ${language}, falling back to LangChain: ${filePath || 'unknown'}`);
+                const fallback = await this.getFallbackSplitter();
+                return await fallback.split(code, language, filePath);
                 }
 
                 // Extract chunks based on AST nodes
@@ -89,7 +142,8 @@ export class AstCodeSplitter implements Splitter {
                 return refinedChunks;
             } catch (error) {
                 console.warn(`⚠️  AST splitter failed for ${language}, falling back to LangChain: ${error}`);
-                return await this.langchainFallback.split(code, language, filePath);
+                const fallback = await this.getFallbackSplitter();
+                return await fallback.split(code, language, filePath);
             } finally {
                 // CRITICAL: Always clean up the tree to prevent memory leaks
                 this.cleanupTree(tree);
@@ -290,6 +344,16 @@ export class AstCodeSplitter implements Splitter {
             'java', 'cpp', 'c++', 'c', 'go', 'rust', 'rs', 'cs', 'csharp', 'scala'
         ];
         return supportedLanguages.includes(language.toLowerCase());
+    }
+
+    /**
+     * Return list of supported languages for AST-based splitting
+     */
+    static getSupportedLanguages(): string[] {
+        return [
+            'javascript', 'js', 'typescript', 'ts', 'python', 'py',
+            'java', 'cpp', 'c++', 'c', 'go', 'rust', 'rs', 'cs', 'csharp', 'scala'
+        ];
     }
 
     /**

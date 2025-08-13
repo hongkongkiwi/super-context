@@ -1,12 +1,7 @@
 import { VectorDatabase, VectorDocument, VectorSearchResult, SearchOptions, HybridSearchResult, HybridSearchRequest } from './types';
 
-// Pinecone SDK - install with: npm install @pinecone-database/pinecone
+// Pinecone SDK - dynamically loaded to play well with test mocks
 let Pinecone: any = null;
-try {
-    Pinecone = require('@pinecone-database/pinecone').Pinecone;
-} catch (error) {
-    console.warn('[PINECONE] @pinecone-database/pinecone not available. Please install it with: npm install @pinecone-database/pinecone');
-}
 
 export interface PineconeConfig {
     apiKey: string;
@@ -41,10 +36,6 @@ export class PineconeVectorDatabase implements VectorDatabase {
     private isInitialized: boolean = false;
 
     constructor(config: PineconeConfig) {
-        if (!Pinecone) {
-            throw new Error('@pinecone-database/pinecone is not available. Please install it with: npm install @pinecone-database/pinecone');
-        }
-
         this.config = {
             metric: 'cosine',
             namespace: '',
@@ -71,18 +62,34 @@ export class PineconeVectorDatabase implements VectorDatabase {
         console.log(`[PINECONE] Connecting to Pinecone...`);
         
         try {
+            // Lazy load SDK to allow test-time mocking
+            if (!Pinecone) {
+                try {
+                    const mod = await import('@pinecone-database/pinecone');
+                    // Support both default and named exports
+                    Pinecone = (mod as any).Pinecone || (mod as any).default || mod;
+                } catch (e) {
+                    console.warn('[PINECONE] @pinecone-database/pinecone not available. Ensure it is installed or mocked in tests.');
+                }
+            }
+            if (!Pinecone) {
+                throw new Error('@pinecone-database/pinecone is not available. Please install it with: npm install @pinecone-database/pinecone');
+            }
             // Initialize Pinecone client
             this.client = new Pinecone({
                 apiKey: this.config.apiKey,
                 ...(this.config.environment && { environment: this.config.environment })
             });
 
-            // Get the index
-            this.index = this.client.index(this.config.indexName);
+            // Get the index (support both index() and Index())
+            this.index = this.getIndexByName(this.config.indexName);
             
-            // Verify index exists and get stats
-            const stats = await this.index.describeIndexStats();
-            console.log(`[PINECONE] Index stats:`, stats);
+            // Verify index exists and get stats if available
+            let stats: any = {};
+            if (this.index && typeof this.index.describeIndexStats === 'function') {
+                stats = await this.index.describeIndexStats();
+                console.log(`[PINECONE] Index stats:`, stats);
+            }
 
             this.isInitialized = true;
             console.log(`[PINECONE] ✅ Successfully connected to Pinecone index "${this.config.indexName}"`);
@@ -91,6 +98,21 @@ export class PineconeVectorDatabase implements VectorDatabase {
             console.error(`[PINECONE] Failed to connect: ${error}`);
             throw error;
         }
+    }
+
+    private getIndexByName(name: string): any {
+        if (!this.client) {
+            throw new Error('Pinecone client not initialized');
+        }
+        const indexFactory = (typeof this.client.index === 'function')
+            ? this.client.index.bind(this.client)
+            : (typeof (this.client as any).Index === 'function')
+                ? (this.client as any).Index.bind(this.client)
+                : null;
+        if (!indexFactory) {
+            throw new Error('Pinecone client does not expose index factory');
+        }
+        return indexFactory(name);
     }
 
     async disconnect(): Promise<void> {
@@ -103,6 +125,15 @@ export class PineconeVectorDatabase implements VectorDatabase {
     }
 
     async createCollection(name: string, dimension: number): Promise<void> {
+        if (!name || typeof name !== 'string' || name.trim() === '') {
+            throw new Error('Pinecone index name is required');
+        }
+        if (!Number.isFinite(dimension) || dimension <= 0) {
+            throw new Error('Pinecone index dimension must be a positive number');
+        }
+        if (!this.isInitialized) {
+            await this.connect();
+        }
         console.log(`[PINECONE] Creating index "${name}" with dimension ${dimension}...`);
         
         try {
@@ -177,6 +208,9 @@ export class PineconeVectorDatabase implements VectorDatabase {
 
     async hasCollection(name: string): Promise<boolean> {
         try {
+            if (!this.isInitialized) {
+                await this.connect();
+            }
             const indexList = await this.client.listIndexes();
             return indexList.indexes?.some((idx: any) => idx.name === name) || false;
         } catch (error) {
@@ -186,6 +220,9 @@ export class PineconeVectorDatabase implements VectorDatabase {
     }
 
     async dropCollection(name: string): Promise<void> {
+        if (!this.isInitialized) {
+            await this.connect();
+        }
         console.log(`[PINECONE] Dropping index "${name}"...`);
         
         try {
@@ -246,10 +283,17 @@ export class PineconeVectorDatabase implements VectorDatabase {
         }
     }
 
-    async search(query: number[], options: SearchOptions = {}): Promise<VectorSearchResult[]> {
+    // Overloaded search to support both simple and adapter signatures
+    async search(collectionName: string, queryVector: number[], options?: SearchOptions): Promise<VectorSearchResult[]>;
+    async search(queryVector: number[], options?: SearchOptions): Promise<VectorSearchResult[]>;
+    async search(a: any, b?: any, c?: any): Promise<VectorSearchResult[]> {
         if (!this.isInitialized) {
             await this.connect();
         }
+        const usingAdapterSignature = typeof a === 'string';
+        const index = usingAdapterSignature ? this.getIndexByName(a) : this.index;
+        const query = usingAdapterSignature ? (b as number[]) : (a as number[]);
+        const options: SearchOptions = usingAdapterSignature ? (c || {}) : (b || {});
 
         const topK = options.limit || this.config.topK || 10;
         
@@ -269,7 +313,10 @@ export class PineconeVectorDatabase implements VectorDatabase {
                 queryRequest.filter = this.convertFilter(options.filter);
             }
 
-            const response = await this.index.query(queryRequest);
+            if (!index || typeof index.query !== 'function') {
+                throw new Error('Pinecone index does not support query()');
+            }
+            const response = await index.query(queryRequest);
 
             const searchResults: VectorSearchResult[] = [];
 
@@ -323,6 +370,25 @@ export class PineconeVectorDatabase implements VectorDatabase {
         }
 
         return pineconeFilter;
+    }
+
+    // Adapter-style insert that takes a collection name
+    async insert(collectionName: string, documents: VectorDocument[]): Promise<void> {
+        // Fast path: nothing to insert, don't require client/index
+        if (!documents || documents.length === 0) {
+            return;
+        }
+        if (!this.isInitialized) {
+            await this.connect();
+        }
+        // Temporarily use a scoped index for this call
+        const previousIndex = this.index;
+        try {
+            this.index = this.getIndexByName(collectionName);
+            await this.insertDocuments(documents);
+        } finally {
+            this.index = previousIndex;
+        }
     }
 
     async hybridSearch(request: HybridSearchRequest): Promise<HybridSearchResult> {

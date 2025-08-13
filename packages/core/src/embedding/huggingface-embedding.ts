@@ -1,4 +1,5 @@
-import { HfInference } from '@huggingface/inference';
+// Lazy import holder for test-time mocking
+let HfInferenceImport: any | null = null;
 import { Embedding, EmbeddingVector } from './base-embedding';
 
 export interface HuggingFaceEmbeddingConfig {
@@ -9,19 +10,37 @@ export interface HuggingFaceEmbeddingConfig {
 
 export class HuggingFaceEmbedding extends Embedding {
     protected maxTokens: number = 512; // HuggingFace models typically have smaller context windows
-    private client: HfInference;
+    private client: any;
     private model: string;
+    private apiKey: string;
 
     constructor(config: HuggingFaceEmbeddingConfig) {
         super();
-        this.client = new HfInference(config.apiKey);
+        if (!config.apiKey || config.apiKey.trim() === '') {
+            throw new Error('HuggingFace API key is required');
+        }
+        this.client = null;
         this.model = config.model;
+        this.apiKey = config.apiKey;
     }
+
+    private async getClient(): Promise<any> {
+        if (this.client) return this.client;
+        if (!HfInferenceImport) {
+            const mod = await import('@huggingface/inference');
+            HfInferenceImport = (mod as any).HfInference || (mod as any).default || mod;
+        }
+        this.client = new HfInferenceImport(this.getApiKey());
+        return this.client;
+    }
+
+    private getApiKey(): string { return this.apiKey; }
 
     protected async embedInternal(text: string): Promise<EmbeddingVector> {
         const processedText = this.preprocessText(text);
         try {
-            const response = await this.client.featureExtraction({
+            const client = await this.getClient();
+            const response = await client.featureExtraction({
                 model: this.model,
                 inputs: processedText,
             });
@@ -65,7 +84,8 @@ export class HuggingFaceEmbedding extends Embedding {
 
                 const batchPromises = batch.map(async (text) => {
                     try {
-                        const response = await this.client.featureExtraction({
+                        const client = await this.getClient();
+                        const response = await client.featureExtraction({
                             model: this.model,
                             inputs: text,
                         });
@@ -147,7 +167,7 @@ export class HuggingFaceEmbedding extends Embedding {
     }
 
     getProvider(): string {
-        return 'HuggingFace';
+        return 'huggingface';
     }
 
     async detectDimension(testText?: string): Promise<number> {

@@ -16,6 +16,18 @@ export class Mutex {
         });
     }
 
+    /**
+     * Try to acquire the mutex without waiting.
+     * Returns true if acquired, false otherwise.
+     */
+    async tryAcquire(): Promise<boolean> {
+        if (!this._locked) {
+            this._locked = true;
+            return true;
+        }
+        return false;
+    }
+
     release(): void {
         if (!this._locked) {
             throw new Error('Cannot release an unlocked mutex');
@@ -52,9 +64,6 @@ export class Semaphore {
     private waiting: Array<() => void> = [];
 
     constructor(permits: number) {
-        if (permits < 1) {
-            throw new Error('Semaphore must have at least 1 permit');
-        }
         this.permits = permits;
     }
 
@@ -100,43 +109,77 @@ export class ResourcePool<T> {
     private resources: T[] = [];
     private inUse: Set<T> = new Set();
     private waiting: Array<(resource: T) => void> = [];
-    private createResource: () => T;
-    private destroyResource?: (resource: T) => void;
+    private createResource: () => T | Promise<T>;
+    private destroyResource?: (resource: T) => void | Promise<void>;
     private maxSize: number;
+    private acquireTimeout?: number;
 
     constructor(
-        createResource: () => T,
-        destroyResource?: (resource: T) => void,
-        initialSize: number = 1,
-        maxSize: number = 10
+        createResource: () => T | Promise<T>,
+        destroyResource?: (resource: T) => void | Promise<void>,
+        initialOrOptions: number | { minSize?: number; maxSize?: number; acquireTimeout?: number } = 1,
+        maxSize?: number
     ) {
         this.createResource = createResource;
         this.destroyResource = destroyResource;
-        this.maxSize = maxSize;
-
-        // Pre-populate the pool
-        for (let i = 0; i < initialSize; i++) {
-            this.resources.push(createResource());
+        if (typeof initialOrOptions === 'object') {
+            const { minSize = 1, maxSize: m = 10, acquireTimeout } = initialOrOptions;
+            this.maxSize = m;
+            this.acquireTimeout = acquireTimeout;
+            // Pre-populate
+            for (let i = 0; i < minSize; i++) {
+                const created = createResource();
+                if (created && typeof (created as any).then === 'function') {
+                    (created as any).then((res: T) => this.resources.push(res)).catch(() => {/* ignore */});
+                } else {
+                    this.resources.push(created as T);
+                }
+            }
+        } else {
+            this.maxSize = maxSize ?? 10;
+            const initialSize = initialOrOptions ?? 1;
+            // Pre-populate the pool synchronously if possible
+            for (let i = 0; i < initialSize; i++) {
+                const created = createResource();
+                if (created && typeof (created as any).then === 'function') {
+                    (created as any).then((res: T) => this.resources.push(res)).catch(() => {/* ignore */});
+                } else {
+                    this.resources.push(created as T);
+                }
+            }
         }
     }
 
     async acquire(): Promise<T> {
-        return new Promise<T>((resolve) => {
-            if (this.resources.length > 0) {
-                const resource = this.resources.pop()!;
-                this.inUse.add(resource);
-                resolve(resource);
-            } else if (this.inUse.size < this.maxSize) {
-                const resource = this.createResource();
-                this.inUse.add(resource);
-                resolve(resource);
+        if (this.resources.length > 0) {
+            const resource = this.resources.pop()!;
+            this.inUse.add(resource);
+            return resource;
+        }
+        if (this.inUse.size < this.maxSize) {
+            const created = await this.createResource();
+            this.inUse.add(created as T);
+            return created as T;
+        }
+        return new Promise<T>((resolve, reject) => {
+            if (this.acquireTimeout && this.acquireTimeout > 0) {
+                const timer = setTimeout(() => {
+                    const idx = this.waiting.indexOf(resolve);
+                    if (idx >= 0) this.waiting.splice(idx, 1);
+                    reject(new Error('Acquire timeout'));
+                }, this.acquireTimeout);
+                const wrapped = (resource: T) => {
+                    clearTimeout(timer);
+                    resolve(resource);
+                };
+                this.waiting.push(wrapped);
             } else {
                 this.waiting.push(resolve);
             }
         });
     }
 
-    release(resource: T): void {
+    async release(resource: T): Promise<void> {
         if (!this.inUse.has(resource)) {
             throw new Error('Resource is not currently in use');
         }
@@ -161,11 +204,11 @@ export class ResourcePool<T> {
         }
     }
 
-    destroy(): void {
+    async destroy(): Promise<void> {
         if (this.destroyResource) {
-            [...this.resources, ...this.inUse].forEach(resource => {
-                this.destroyResource!(resource);
-            });
+            await Promise.all(
+                [...this.resources, ...this.inUse].map(resource => Promise.resolve(this.destroyResource!(resource)))
+            );
         }
         this.resources = [];
         this.inUse.clear();

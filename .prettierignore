@@ -1,0 +1,40 @@
+# Build outputs
+dist/
+build/
+out/
+coverage/
+.turbo/
+.next/
+
+# Dependencies
+node_modules/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# IDE and system files
+.vscode/
+.idea/
+*.log
+.DS_Store
+
+# Generated files
+*.min.js
+*.min.css
+*.d.ts
+*.d.ts.map
+
+# Test snapshots
+**/__snapshots__/
+
+# Specific package outputs
+packages/vscode-extension/out
+packages/chrome-extension/dist
+
+# Documentation
+docs/api/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/

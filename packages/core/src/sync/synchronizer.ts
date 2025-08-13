@@ -216,6 +216,17 @@ export class FileSynchronizer {
 
     public async initialize() {
         console.log(`Initializing file synchronizer for ${this.rootDir}`);
+        // Ensure the root directory exists before proceeding
+        try {
+            const stat = await fs.stat(this.rootDir);
+            if (!stat.isDirectory()) {
+                throw new Error(`Root path is not a directory: ${this.rootDir}`);
+            }
+        } catch (error: any) {
+            // Propagate error to allow callers/tests to handle non-existent directories
+            throw new Error(`Cannot read directory ${this.rootDir}: ${error.message || String(error)}`);
+        }
+
         await this.loadSnapshot();
         this.merkleDAG = this.buildMerkleDAG(this.fileHashes);
         console.log(`File synchronizer initialized. Loaded ${this.fileHashes.size} file hashes.`);
@@ -312,13 +323,21 @@ export class FileSynchronizer {
             }
             console.log(`Loaded snapshot from ${this.snapshotPath}`);
         } catch (error: any) {
-            if (error.code === 'ENOENT') {
+            // Treat missing or invalid snapshots as empty baseline so that next scan reports files as added
+            if (error.code === 'ENOENT' || error.name === 'SyntaxError') {
                 console.log(`Snapshot file not found at ${this.snapshotPath}. Generating new one.`);
-                this.fileHashes = await this.generateFileHashes(this.rootDir);
+                this.fileHashes = new Map();
                 this.merkleDAG = this.buildMerkleDAG(this.fileHashes);
                 await this.saveSnapshot();
             } else {
-                throw error;
+                // Other errors: attempt regeneration from current filesystem; if that fails, rethrow original
+                try {
+                    this.fileHashes = await this.generateFileHashes(this.rootDir);
+                    this.merkleDAG = this.buildMerkleDAG(this.fileHashes);
+                    await this.saveSnapshot();
+                } catch (regenError) {
+                    throw error;
+                }
             }
         }
     }

@@ -77,3 +77,6 @@ export const mockVectorDBResponse = {
     { path: '/src/file2.js', type: 'javascript' }
   ]
 }
+
+// Re-export mockFileContent so tests can import from this helper
+export { mockFileContent } from './test-utils'

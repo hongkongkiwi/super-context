@@ -20,48 +20,7 @@ vi.mock('openai', () => ({
   }))
 }))
 
-vi.mock('chromadb', () => ({
-  ChromaApi: vi.fn().mockImplementation(() => ({
-    createCollection: vi.fn().mockResolvedValue({
-      id: 'test-collection',
-      name: 'test-collection',
-      add: vi.fn().mockResolvedValue({}),
-      query: vi.fn().mockResolvedValue({
-        ids: [['doc1', 'doc2']],
-        distances: [[0.1, 0.2]],
-        metadatas: [[
-          { 
-            relativePath: 'utils/math.js', 
-            language: 'javascript',
-            startLine: 1,
-            endLine: 5 
-          },
-          { 
-            relativePath: 'components/Button.tsx', 
-            language: 'typescript',
-            startLine: 10,
-            endLine: 25 
-          }
-        ]],
-        documents: [['function add(a, b) { return a + b; }', 'const Button = () => <button>Click</button>']]
-      }),
-      delete: vi.fn().mockResolvedValue({}),
-      count: vi.fn().mockResolvedValue(2)
-    }),
-    deleteCollection: vi.fn().mockResolvedValue({}),
-    listCollections: vi.fn().mockResolvedValue([]),
-    getCollection: vi.fn().mockResolvedValue({
-      name: 'test-collection',
-      add: vi.fn().mockResolvedValue({}),
-      query: vi.fn().mockResolvedValue({
-        ids: [['doc1']],
-        distances: [[0.15]],
-        metadatas: [[{ relativePath: 'utils/math.js', language: 'javascript' }]],
-        documents: [['function add(a, b) { return a + b; }']]
-      })
-    })
-  }))
-}))
+// Use the shared chroma stub from test/stubs via vitest alias
 
 // Mock tree-sitter for consistent AST parsing
 vi.mock('tree-sitter', () => ({

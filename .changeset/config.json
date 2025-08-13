@@ -1,0 +1,20 @@
+{
+  "changelog": [
+    "@changesets/changelog-github",
+    {
+      "repo": "hongkongkiwi/super-context"
+    }
+  ],
+  "commit": false,
+  "fixed": [],
+  "linked": [
+    ["@hongkongkiwi/super-context-*"]
+  ],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": ["@hongkongkiwi/super-context-basic-example"],
+  "___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": {
+    "onlyUpdatePeerDependentsWhenOutOfRange": true
+  }
+}
